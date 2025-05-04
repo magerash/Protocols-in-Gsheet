@@ -708,7 +708,7 @@
           saveButton.setAttribute('data-initialized', 'true');        
           let isSaving = false;
 
-          saveButton.addEventListener('click', async function(event) {
+          saveButton.addEventListener('click', function(event) {
               event.preventDefault(); 
               if (isSaving) return;
               
@@ -716,61 +716,46 @@
               isSaving = true;
               btn.disabled = true;
               btn.textContent = 'Сохранение...';
-              
+
+              // Получаем данные
+              const topic = document.getElementById('topic').value.trim();
+              const date = document.getElementById('meetingDateTime').value;
+              const attendees = Array.from(window.selectedEmails || []);  
+
               try {
-                  // Получаем элементы с проверкой
-                  const topicElement = document.getElementById('topic');
-                  const dateElement = document.getElementById('meetingDateTime');
-                  
-                  if (!topicElement || !dateElement) {
-                      throw new Error("Форма заполнена некорректно");
-                  }
-
-                  const topic = topicElement.value.trim();
-                  const date = dateElement.value;
-                  const attendees = Array.from(window.selectedEmails || []);
-
                   // Валидация
                   if (!topic) throw new Error("Введите тему встречи");
                   if (!date) throw new Error("Выберите дату и время");
                   if (attendees.length === 0) throw new Error("Добавьте участников");
-
-                  // Разделение участников на пакеты по 200
-                  const batchSize = 200;
-                  const allAttendees = Array.from(window.selectedEmails);
-                  const batches = [];
-                  
-                  for (let i = 0; i < allAttendees.length; i += batchSize) {
-                    batches.push(allAttendees.slice(i, i + batchSize));
-                  }
+              } catch (error) {
+                  showAlert(error.message);
+                  isSaving = false;
+                  btn.disabled = false;
+                  btn.textContent = 'Сохранить встречу';
+                  return;
+              }           
 
                   // Подготовка данных
                   const meetingData = {
                     meetingNumber: window.currentMeetingNumber,
-                    topic: document.getElementById("topic").value.trim(),
-                    attendees: Array.from(window.selectedEmails),
-                    date: document.getElementById("meetingDateTime").value
+                    topic: topic,
+                    attendees: attendees,
+                    date: date
                   };
 
                   // Отправка данных  
-                  await google.script.run
+                  google.script.run
                       .withSuccessHandler(() => {
                           setTimeout(() => google.script.host.close(), 500);
                       })
                       .withFailureHandler(error => {
-                          throw new Error(error.message);
+                          showAlert(`Ошибка: ${error.message}`);
+                          btn.disabled = false;
+                          btn.textContent = 'Сохранить встречу';
+                          isSaving = false;
                       })
                       .createMeeting(meetingData);
-                  
-              } catch (error) {
-                  console.error('Ошибка:', error);
-                  showAlert(error.message);
-               } finally {    
-                  btn.disabled = false;
-                  btn.textContent = 'Сохранить встречу';
-                  isSaving = false;
-              }
-          });
+        });
       }
     });
   </script>

@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    body {
+      font-family: 'Roboto', Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      color: #202124;
+    }
+    .header {
+      font-size: 20px;
+      font-weight: 500;
+      margin-bottom: 20px;
+      color: #202124;
+    }
+    .input-container {
+      margin-bottom: 16px;
+    }
+    .input-label {
+      display: block;
+      font-size: 14px;
+      margin-bottom: 8px;
+      color: #5f6368;
+    }
+    .input-field {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #dadce0;
+      border-radius: 4px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    .input-field:disabled {
+      background-color: #f1f3f4;
+      color: #202124;
+    }
+    /* Основные стили для select */
+    .select-field {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #dadce0;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    .button {
+      background-color: #1a73e8;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 10px 24px;
+      font-size: 14px;
+      cursor: pointer;
+      float: right;
+    }
+    .button:hover {
+      background-color: #1765cc;
+    }
+    .loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100px;
+    }
+    .spinner {
+      border: 3px solid #f1f3f4;
+      border-top: 3px solid #1a73e8;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      animation: spin 1s linear infinite;
+      margin-bottom: 16px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    select {
+      display: block;
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background-color: white;
+      font-size: 14px;
+    }
+
+    select:disabled {
+      background-color: #f5f5f5;
+      color: #999;
+    }
+    .button:disabled {
+      background-color: #cccccc !important;
+      cursor: not-allowed;
+      opacity: 0.7;
+    }
+    .search-container {
+      margin-bottom: 16px;
+    }
+    .search-input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #dadce0;
+      border-radius: 4px;
+      font-size: 14px;
+      box-sizing: border-box;
+      margin-bottom: 8px;
+    }
+    .highlight {
+      background-color: #fff9c4;
+    }
+    
+    /* Стиль для email */
+    .employee-email {
+      color: #777;
+      font-size: 0.85em;
+      float: right;
+      padding-left: 15px;
+    }
+    
+    /* Стиль для имени */
+    .employee-name {
+      display: inline-block;
+      max-width: 60%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    
+    /* Очистка float */
+    .employee-option::after {
+      content: "";
+      display: table;
+      clear: both;
+    }
+    
+    /* Для многострочного выбора */
+    .select-field[multiple] option {
+      padding: 8px 12px;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .custom-select-container {
+      position: relative;
+      margin-bottom: 16px;
+    }
+
+    .custom-select {
+      border: 1px solid #dadce0;
+      border-radius: 4px;
+      padding: 10px;
+      cursor: pointer;
+      background: white;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .selected-options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      flex-grow: 1;
+    }
+
+    .dropdown-arrow {
+      margin-left: 8px;
+    }
+
+    .dropdown-content {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      max-height: 300px;
+      overflow-y: auto;
+      background: white;
+      border: 1px solid #dadce0;
+      border-radius: 0 0 4px 4px;
+      z-index: 100;
+    }
+
+    .dropdown-content.show {
+      display: block;
+    }
+
+    .employee-option {
+      padding: 8px 12px;
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    .employee-option:hover {
+      background-color: #f5f5f5;
+    }
+
+    .employee-option.selected {
+      background-color: #e8f0fe;
+    }
+
+    .employee-name {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .employee-email {
+      color: #777;
+      font-size: 0.85em;
+      margin-left: 16px;
+      text-align: right;
+    }
+
+    .selected-tag {
+      background: #e8f0fe;
+      padding: 2px 8px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+    }
+
+    .selected-tag .remove-tag {
+      margin-left: 4px;
+      cursor: pointer;
+    }    
+    .dropdown-search-container {
+      padding: 8px;
+      position: sticky;
+      top: 0;
+      background: white;
+      z-index: 2;
+      border-bottom: 1px solid #eee;
+    }
+    .dropdown-search {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #dadce0;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    .options-container {
+      max-height: 250px;
+      overflow-y: auto;
+    }
+    .dropdown-placeholder {
+      padding: 12px;
+      color: #999;
+      text-align: center;
+      font-style: italic;
+    }
+    .custom-alert {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0,0,0,0.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      animation: fadeIn 0.3s;
+
+    }
+
+    .custom-alert-content {
+      background: white;
+      padding: 24px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      max-width: 400px;
+      width: 90%;
+      text-align: center;
+    }
+
+    .custom-alert-message {
+      margin-bottom: 20px;
+      font-size: 16px;
+      color: #202124;
+    }
+
+    .custom-alert-button {
+      background-color: #1a73e8;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 10px 24px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    .custom-alert-button:hover {
+      background-color: #1765cc;
+    }
+    #saveMeeting {
+      transition: background-color 0.3s, opacity 0.3s;
+    }
+    #saveMeeting:disabled {
+      opacity: 0.7;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    .filter-group {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .filter-select {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #dadce0;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+   
+  <div id="loadingContainer" class="loading">
+    <div class="spinner"></div>
+    <div>Загрузка данных...</div>
+  </div>
+  
+  <div id="formContainer" style="display: none;">
+    
+    <div class="input-container">
+      <label class="input-label">Дата встречи</label>
+      <input id="meetingDateTime" class="input-field" type="datetime-local">      
+    </div>
+    
+    <div class="input-container">
+      <label class="input-label">Тема встречи</label>
+      <input id="topic" class="input-field" type="text" placeholder="Введите тему">
+    </div>
+    
+    <div class="input-container">
+      <label class="input-label">Участники</label>
+    </div>
+    <div class="input-container">
+      <label class="input-label">Фильтры</label>
+      <div class="filter-group">
+        <select id="organizationFilter" class="filter-select">
+          <option value="">Все организации</option>
+        </select>
+        <select id="departmentFilter" class="filter-select">
+          <option value="">Все подразделения</option>
+        </select>
+        <select id="unitFilter" class="filter-select">
+          <option value="">Все отделы</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="custom-select-container">
+      <div class="custom-select" id="attendeesDropdown" tabindex="0">
+        <div class="selected-options" id="selectedOptions"></div>
+        <div class="dropdown-arrow">▼</div>
+          <div class="dropdown-content" id="dropdownContent">
+            <div class="dropdown-search-container">
+              <input type="text" class="dropdown-search" placeholder="Поиск">
+            </div>
+            <div class="options-container" id="optionsContainer">
+              <div class="dropdown-placeholder">Выбор участников</div>
+            </div>
+          </div>        
+      </div>
+      <input type="hidden" id="attendees" name="attendees">
+    </div>    
+
+    <button id="saveMeeting" class="button">Сохранить встречу</button>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Загружаем данные асинхронно
+      Promise.all([
+        loadMeetingNumber(),
+        loadEmployees()
+      ]).then(function() {
+        // Скрываем индикатор и показываем форму
+        document.getElementById('loadingContainer').style.display = 'none';
+        document.getElementById('formContainer').style.display = 'block';
+
+        // 1. Получаем элемент
+        const datetimeInput = document.getElementById('meetingDateTime');
+        
+        // 2. Устанавливаем текущие дату и время по умолчанию
+        if(datetimeInput) {
+          const now = new Date();
+          
+          // Корректируем время для формата datetime-local
+          const timezoneOffset = now.getTimezoneOffset() * 60000;
+          const localDateTime = new Date(now - timezoneOffset);
+          
+          datetimeInput.value = localDateTime.toISOString().slice(0, 16);
+        }
+      })
+      .catch(function(error) {
+        console.error('Ошибка загрузки:', error);
+        document.getElementById('loadingContainer').innerHTML = 
+          '<div style="color: #d93025;">Ошибка загрузки данных. Пожалуйста, попробуйте еще раз.</div>';
+      });
+
+      // Инициализация кнопки после полной загрузки
+      setTimeout(() => {
+        initializeSaveButton();
+        
+        // Дополнительная проверка через 1 секунду
+        if (!document.getElementById('saveMeeting')?.hasEventListener('click')) {
+          initializeSaveButton();
+        }
+      }, 100);
+
+      
+      function loadMeetingNumber() {
+        return new Promise(function(resolve) {
+          google.script.run.withSuccessHandler(function(number) {
+            // Сохраняем номер во внутренней переменной, но не отображаем
+            window.currentMeetingNumber = number;
+            resolve();
+          }).getNextMeetingNumber();
+        });
+      }
+
+      function setupDropdownBehavior() {
+        const dropdownToggle = document.getElementById('attendeesDropdown');
+        const dropdownContent = document.getElementById('dropdownContent');
+        const searchInput = document.querySelector('.dropdown-search');
+
+        // Открытие при клике в любом месте dropdown
+        dropdownToggle.addEventListener('click', function() {
+          if (!dropdownContent.classList.contains('show')) {
+            dropdownContent.classList.add('show');
+            setTimeout(() => searchInput.focus(), 0);
+          }
+        });
+
+        // Особый обработчик для поля поиска
+        searchInput.addEventListener('mousedown', function(e) {
+          e.stopPropagation(); // Блокируем всплытие
+          if (!dropdownContent.classList.contains('show')) {
+            dropdownContent.classList.add('show');
+          }
+        });
+      }
+      
+      function loadEmployees() {
+        return new Promise(function(resolve, reject) {
+          google.script.run
+            .withSuccessHandler(function(employees) {
+              try {
+                // Инициализация фильтров
+                initFilters(employees);                
+                const optionsContainer = document.getElementById('optionsContainer');
+                const selectedOptions = document.getElementById('selectedOptions');
+                const hiddenInput = document.getElementById('attendees');
+                const searchInput = document.querySelector('.dropdown-search');
+                
+                // Сохраняем состояние
+                window.allEmployees = employees;
+                window.selectedEmails = new Set();
+                window.employeeIds = new Map(); // Для хранения соответствия email -> ID
+                
+                // Функция отрисовки с учетом выбранных
+                function renderOptions(employeesToRender) {
+                  optionsContainer.innerHTML = '';
+                  
+                  employeesToRender.forEach(function(employee) {
+                    // Сохраняем соответствие email -> ID
+                    window.employeeIds.set(employee.email, employee.id);
+                    
+                    const option = document.createElement('div');
+                    option.className = 'employee-option';
+                    option.dataset.email = employee.email;
+                    option.dataset.employeeId = employee.id; // Добавляем ID в data-атрибут
+                    
+                    // Добавляем класс selected если уже выбран
+                    if (window.selectedEmails.has(employee.email)) {
+                      option.classList.add('selected');
+                    }
+                    
+                    // Форматируем имя как "И. Иванов"
+                    const firstNameInitial = employee.firstName ? employee.firstName[0].toUpperCase() + '.' : '';
+                    const formattedName = `${firstNameInitial} ${employee.lastName}`;
+                    
+                    option.innerHTML = `
+                      <span class="employee-name">${employee.displayName}</span>
+                      <span class="employee-email">${employee.email}</span>
+                    `;
+                    
+                    option.addEventListener('click', function() {
+                      const email = this.dataset.email;
+                      if (window.selectedEmails.has(email)) {
+                        window.selectedEmails.delete(email);
+                        this.classList.remove('selected');
+                      } else {
+                        window.selectedEmails.add(email);
+                        this.classList.add('selected');
+                      }
+                      updateSelectedOptions();
+                    });
+                    
+                    optionsContainer.appendChild(option);
+                  });
+                }
+                
+                // Инициализация поиска
+                searchInput.addEventListener('input', function() {
+                  const searchTerm = this.value.toLowerCase();
+                  const filtered = applyFilters().filter(employee => {
+                    // Оставляем существующую логику поиска
+                    const fullName = `${employee.firstName} ${employee.lastName}`.toLowerCase();
+                    return fullName.includes(searchTerm) || 
+                          employee.email.toLowerCase().includes(searchTerm);
+                  });
+                  renderOptions(filtered);
+                });
+
+                function initFilters(employees) {
+                  const orgFilter = document.getElementById('organizationFilter');
+                  const deptFilter = document.getElementById('departmentFilter');
+                  const unitFilter = document.getElementById('unitFilter');
+
+                  // Заполняем уникальные значения
+                  const uniqueValues = {
+                    org: new Set(),
+                    dept: new Set(),
+                    unit: new Set()
+                  };
+
+                  employees.forEach(emp => {
+                    uniqueValues.org.add(emp.organization);
+                    uniqueValues.dept.add(emp.department);
+                    uniqueValues.unit.add(emp.unit);
+                  });
+
+                  // Заполняем фильтры
+                  fillFilter(orgFilter, uniqueValues.org);
+                  fillFilter(deptFilter, uniqueValues.dept);
+                  fillFilter(unitFilter, uniqueValues.unit);
+
+                  // Обработчики изменений фильтров
+                  [orgFilter, deptFilter, unitFilter].forEach(filter => {
+                    filter.addEventListener('change', () => applyFilters());
+                  });
+                }
+
+                function fillFilter(select, values) {
+                  const options = Array.from(values)
+                    .filter(v => v)
+                    .sort()
+                    .map(v => `<option value="${v}">${v}</option>`);
+                  
+                  select.innerHTML += options.join('');
+                }
+
+                function applyFilters() {
+                  const org = document.getElementById('organizationFilter').value;
+                  const dept = document.getElementById('departmentFilter').value;
+                  const unit = document.getElementById('unitFilter').value;
+
+                  const filtered = window.allEmployees.filter(emp => {
+                    return (!org || emp.organization === org) &&
+                          (!dept || emp.department === dept) &&
+                          (!unit || emp.unit === unit);
+                  });
+
+                  renderOptions(filtered);
+                }
+                
+                // Обновление выбранных вариантов
+                function updateSelectedOptions() {
+                  selectedOptions.innerHTML = '';
+                  const selectedData = [];
+                  
+                  Array.from(window.selectedEmails).forEach(email => {
+                    const employee = window.allEmployees.find(e => e.email === email);
+                    if (employee) {
+                      const firstNameInitial = employee.firstName ? employee.firstName[0].toUpperCase() + '.' : '';
+                      const formattedName = `${firstNameInitial} ${employee.lastName}`;
+                      
+                      const tag = document.createElement('div');
+                      tag.className = 'selected-tag';
+                      tag.innerHTML = `
+                        ${formattedName}
+                        <span class="remove-tag" data-email="${email}">×</span>
+                      `;
+                      selectedOptions.appendChild(tag);
+                      
+                      // Сохраняем данные в формате: email|id
+                      selectedData.push(`${email}|${window.employeeIds.get(email)}`);
+                    }
+                  });
+                  
+                  // // Сохраняем в скрытое поле в формате: email1|id1,email2|id2
+                  // hiddenInput.value = selectedData.join(',');
+                  
+                  // Обработчики для удаления
+                  document.querySelectorAll('.remove-tag').forEach(btn => {
+                    btn.addEventListener('click', function(e) {
+                      e.stopPropagation();
+                      window.selectedEmails.delete(this.dataset.email);
+                      updateSelectedOptions();
+                      // Обновляем класс selected в dropdown
+                      document.querySelectorAll('.employee-option').forEach(opt => {
+                        if (opt.dataset.email === this.dataset.email) {
+                          opt.classList.remove('selected');
+                        }
+                      });
+                    });
+                  });
+                }
+                
+                // Первоначальная отрисовка
+                renderOptions(employees);
+                initializeSaveButton();
+                setupDropdownBehavior();
+                updateSelectedOptions();
+                resolve();
+
+              } catch (e) {
+                reject(e);
+              }
+            })
+            .getEmployees();
+        });
+      }
+
+      function updateSelectedOptions() {
+        const selectedOptions = document.getElementById('selectedOptions');
+        const hiddenInput = document.getElementById('attendees');
+        const selected = document.querySelectorAll('.employee-option.selected');
+        
+        // Обновляем отображение выбранных вариантов
+        selectedOptions.innerHTML = '';
+        const emails = [];
+        
+        selected.forEach(option => {
+          emails.push(option.dataset.email);
+          
+          const tag = document.createElement('div');
+          tag.className = 'selected-tag';
+          tag.innerHTML = `
+            ${option.querySelector('.employee-name').textContent}
+            <span class="remove-tag" data-email="${option.dataset.email}">×</span>
+          `;
+          selectedOptions.appendChild(tag);
+        });
+        
+        // Обновляем скрытое поле с выбранными email
+        hiddenInput.value = emails.join(',');
+        
+        // Добавляем обработчики для удаления
+        document.querySelectorAll('.remove-tag').forEach(btn => {
+          btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const email = this.dataset.email;
+            const option = document.querySelector(`.employee-option[data-email="${email}"]`);
+            option.classList.remove('selected');
+            updateSelectedOptions();
+          });
+        });
+      }
+
+      function showAlert(message) {
+        const alert = document.getElementById('customAlert');
+        const messageEl = document.getElementById('customAlertMessage');
+        const okButton = document.getElementById('customAlertOK');
+        
+        if (!alert || !messageEl || !okButton) return;
+        
+        messageEl.textContent = message;
+        alert.style.display = 'flex';
+        
+        okButton.onclick = function() {
+          alert.style.display = 'none';
+        };
+      }
+      
+      function resetMeetingForm() {
+        // Сброс выбранных участников
+        window.selectedEmails = new Set();
+        document.getElementById('selectedOptions').innerHTML = '';
+        document.getElementById('attendees').value = '';
+        
+        // Сброс темы
+        document.getElementById('topic').value = '';
+        
+        // Обновление номера встречи
+        loadMeetingNumber().then(() => {
+          // Сброс состояния кнопки
+          const btn = document.getElementById('saveMeeting');
+          btn.disabled = false;
+          btn.textContent = 'Сохранить встречу';
+        });
+      }
+
+      // ====== ИНИЦИАЛАЙЗЕРЫ ========
+      // Dropdown
+      document.getElementById('attendeesDropdown').addEventListener('click', function() {
+        document.getElementById('dropdownContent').classList.toggle('show');
+      });
+
+      // Закрытие dropdown при клике вне его
+      document.addEventListener('click', function(e) {
+        if (!e.target.closest('.custom-select-container')) {
+          document.getElementById('dropdownContent').classList.remove('show');
+        }
+      });
+      // Добавляем обработчик поиска
+      document.getElementById('employeeSearch').addEventListener('input', function(e) {
+        const searchTerm = e.target.value.toLowerCase();
+        const options = document.querySelectorAll('#attendees option');
+        
+        options.forEach(option => {
+          if (option.value === '') return;
+          const text = option.textContent.toLowerCase();
+          // Ищем по всему тексту (имя + email)
+          option.style.display = text.includes(searchTerm) ? 'block' : 'none';
+          
+          // Подсветка найденного (дополнительно)
+          if (searchTerm && text.includes(searchTerm)) {
+            const regex = new RegExp(searchTerm, 'gi');
+            option.innerHTML = option.textContent.replace(regex, 
+              match => `<span style="background-color: yellow">${match}</span>`);
+          }
+        });
+      });
+
+      // Обновленная функция инициализации
+      function initializeSaveButton() {
+          const saveButton = document.getElementById('saveMeeting');
+          if (!saveButton || saveButton.hasAttribute('data-initialized')) return;
+          
+          saveButton.setAttribute('data-initialized', 'true');        
+          let isSaving = false;
+
+          saveButton.addEventListener('click', function() {
+              if (isSaving) return;
+              
+              const btn = this;
+              isSaving = true;
+              btn.disabled = true;
+              btn.textContent = 'Сохранение...';
+              
+              try {
+                  // Получаем элементы
+                  const topic = document.getElementById('topic').value.trim();
+                  const attendees = Array.from(window.selectedEmails || []);
+                  const date = document.getElementById('meetingDateTime').value
+                  
+
+                  // Подготовка данных
+                  const meetingData = {
+                      meetingNumber: window.currentMeetingNumber,
+                      topic: topic,
+                      attendees: attendees,
+                      date: date
+                  };
+
+                  // Отправка данных
+                  google.script.run
+                      .withSuccessHandler(function(result) {
+                        google.script.host.close();
+                        // google.script.run.showRecordDialog(result.id, result.number);
+                      })
+                      .withFailureHandler(function(error) {
+                          // Обработка ошибок...
+                      })
+                      .createMeeting(meetingData);
+
+              } catch (error) {
+                  console.error('Ошибка:', error);
+                  showAlert(error.message);
+                  btn.disabled = false;
+                  btn.textContent = 'Сохранить встречу';
+                  isSaving = false;
+              }
+          });
+      }
+    });
+  </script>
+
+  <div id="customAlert" class="custom-alert">
+    <div class="custom-alert-content">
+      <div class="custom-alert-message" id="customAlertMessage"></div>
+      <button class="custom-alert-button" id="customAlertOK">OK</button>
+    </div>
+  </div>
+
+</body>
+</html>

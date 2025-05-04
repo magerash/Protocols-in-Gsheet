@@ -28,7 +28,6 @@ function showRecordDialog(meetingId, meetingNumber) {
   PropertiesService.getScriptProperties().setProperty('currentMeetingId', meetingId);
 }
 
-
 function getNextMeetingNumber() {
   var sheet = SpreadsheetApp.getActive().getSheetByName('Встречи');
   return sheet.getLastRow() === 1 ? 1 : sheet.getRange(sheet.getLastRow(), 2).getValue() + 1;
@@ -164,6 +163,15 @@ function createMeeting(meetingData) {
   var sheet = SpreadsheetApp.getActive().getSheetByName('Встречи');
   var meetingId = Utilities.getUuid();
 
+  // Проверка данных на сервере
+  if (!meetingData.topic || meetingData.topic.length > 500) {
+    throw new Error("Ошибка валидации: тема");
+  }
+
+  if (!meetingData.date || isNaN(new Date(meetingData.date))) {
+    throw new Error("Ошибка валидации: дата");
+  }
+  
   // Получаем данные сотрудников
   var employees = getEmployees();
 

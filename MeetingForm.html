@@ -415,7 +415,7 @@
         initializeSaveButton();
         
         // Дополнительная проверка через 1 секунду
-        if (!document.getElementById('saveMeeting')?.hasEventListener('click')) {
+        if (!document.getElementById('saveMeeting').hasAttribute('data-initialized')) {
           initializeSaveButton();
         }
       }, 100);
@@ -597,12 +597,12 @@
                       selectedOptions.appendChild(tag);
                       
                       // Сохраняем данные в формате: email|id
-                      selectedData.push(`${email}|${window.employeeIds.get(email)}`);
+                      selectedData.push(email);
                     }
                   });
                   
-                  // // Сохраняем в скрытое поле в формате: email1|id1,email2|id2
-                  // hiddenInput.value = selectedData.join(',');
+                  // Сохраняем в скрытое поле в формате: email1|id1,email2|id2
+                  hiddenInput.value = selectedData.join(',');
                   
                   // Обработчики для удаления
                   document.querySelectorAll('.remove-tag').forEach(btn => {
@@ -633,43 +633,7 @@
             })
             .getEmployees();
         });
-      }
-
-      function updateSelectedOptions() {
-        const selectedOptions = document.getElementById('selectedOptions');
-        const hiddenInput = document.getElementById('attendees');
-        const selected = document.querySelectorAll('.employee-option.selected');
-        
-        // Обновляем отображение выбранных вариантов
-        selectedOptions.innerHTML = '';
-        const emails = [];
-        
-        selected.forEach(option => {
-          emails.push(option.dataset.email);
-          
-          const tag = document.createElement('div');
-          tag.className = 'selected-tag';
-          tag.innerHTML = `
-            ${option.querySelector('.employee-name').textContent}
-            <span class="remove-tag" data-email="${option.dataset.email}">×</span>
-          `;
-          selectedOptions.appendChild(tag);
-        });
-        
-        // Обновляем скрытое поле с выбранными email
-        hiddenInput.value = emails.join(',');
-        
-        // Добавляем обработчики для удаления
-        document.querySelectorAll('.remove-tag').forEach(btn => {
-          btn.addEventListener('click', function(e) {
-            e.stopPropagation();
-            const email = this.dataset.email;
-            const option = document.querySelector(`.employee-option[data-email="${email}"]`);
-            option.classList.remove('selected');
-            updateSelectedOptions();
-          });
-        });
-      }
+      }    
 
       function showAlert(message) {
         const alert = document.getElementById('customAlert');
@@ -717,7 +681,7 @@
         }
       });
       // Добавляем обработчик поиска
-      document.getElementById('employeeSearch').addEventListener('input', function(e) {
+      document.querySelector('.dropdown-search').addEventListener('input', function(e) {
         const searchTerm = e.target.value.toLowerCase();
         const options = document.querySelectorAll('#attendees option');
         
@@ -744,7 +708,8 @@
           saveButton.setAttribute('data-initialized', 'true');        
           let isSaving = false;
 
-          saveButton.addEventListener('click', function() {
+          saveButton.addEventListener('click', function(event) {
+              event.preventDefault(); 
               if (isSaving) return;
               
               const btn = this;
@@ -756,27 +721,46 @@
                   // Получаем элементы
                   const topic = document.getElementById('topic').value.trim();
                   const attendees = Array.from(window.selectedEmails || []);
-                  const date = document.getElementById('meetingDateTime').value
-                  
+                  const date = document.getElementById("meetingDateTime").value;
 
+                  // Проверка темы
+                  if (!topic || topic.length > 500) {
+                    throw new Error("Тема обязательна (макс. 500 символов)");
+                  }
+                  // Проверка участников
+                  if (attendees.length === 0) {
+                    throw new Error("Добавьте минимум 1 участника");
+                  } else if (attendees.length > 200) { // Лимит Google Apps Script
+                    throw new Error("Максимум 200 участников");
+                  }
+                  // Проверка даты
+                  if (!date || isNaN(new Date(date))) {
+                    throw new Error("Некорректная дата");
+                  }
+                  // Форматирование даты
+                  // const formattedDate = new Date(date).toISOString();                  
+                  
                   // Подготовка данных
                   const meetingData = {
                       meetingNumber: window.currentMeetingNumber,
                       topic: topic,
                       attendees: attendees,
-                      date: date
+                      date: date 
                   };
+                  console.log(JSON.stringify(meetingData))
 
                   // Отправка данных
                   google.script.run
-                      .withSuccessHandler(function(result) {
-                        google.script.host.close();
+                    .withSuccessHandler(() => {
+                      setTimeout(() => {
+                        google.script.host.close(); // Задержка перед закрытием
                         // google.script.run.showRecordDialog(result.id, result.number);
-                      })
-                      .withFailureHandler(function(error) {
-                          // Обработка ошибок...
-                      })
-                      .createMeeting(meetingData);
+                      }, 500);
+                    })
+                    .withFailureHandler((error) => {
+                      showAlert(`Ошибка: ${error.message}`);
+                    })
+                    .createMeeting(meetingData);              
 
               } catch (error) {
                   console.error('Ошибка:', error);

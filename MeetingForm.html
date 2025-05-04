@@ -718,50 +718,48 @@
               btn.textContent = 'Сохранение...';
               
               try {
-                  // Получаем элементы
-                  const topic = document.getElementById('topic').value.trim();
-                  const attendees = Array.from(window.selectedEmails || []);
-                  const date = document.getElementById("meetingDateTime").value;
-
-                  // Проверка темы
-                  if (!topic || topic.length > 500) {
-                    throw new Error("Тема обязательна (макс. 500 символов)");
-                  }
-                  // Проверка участников
-                  if (attendees.length === 0) {
-                    throw new Error("Добавьте минимум 1 участника");
-                  } else if (attendees.length > 200) { // Лимит Google Apps Script
-                    throw new Error("Максимум 200 участников");
-                  }
-                  // Проверка даты
-                  if (!date || isNaN(new Date(date))) {
-                    throw new Error("Некорректная дата");
-                  }
-                  // Форматирование даты
-                  // const formattedDate = new Date(date).toISOString();                  
+                  // Получаем элементы с проверкой
+                  const topicElement = document.getElementById('topic');
+                  const dateElement = document.getElementById('meetingDateTime');
                   
-                  // Подготовка данных
+                  if (!topicElement || !dateElement) {
+                      throw new Error("Форма заполнена некорректно");
+                  }
+
+                  const topic = topicElement.value.trim();
+                  const date = dateElement.value;
+                  const attendees = Array.from(window.selectedEmails || []);
+
+                  // Валидация
+                  if (!topic) throw new Error("Введите тему встречи");
+                  if (!date) throw new Error("Выберите дату и время");
+                  if (attendees.length === 0) throw new Error("Добавьте участников");
+
+                  // Разделение участников на пакеты по 200
+                  const batchSize = 200;
+                  const allAttendees = Array.from(window.selectedEmails);
+                  const batches = [];
+                  
+                  for (let i = 0; i < allAttendees.length; i += batchSize) {
+                    batches.push(allAttendees.slice(i, i + batchSize));
+                  }
+
+                  // Отправка пакетов
                   const meetingData = {
-                      meetingNumber: window.currentMeetingNumber,
-                      topic: topic,
-                      attendees: attendees,
-                      date: date 
+                    meetingNumber: window.currentMeetingNumber,
+                    topic: document.getElementById("topic").value.trim(),
+                    attendees: Array.from(window.selectedEmails),
+                    date: document.getElementById("meetingDateTime").value
                   };
-                  console.log(JSON.stringify(meetingData))
+                    
+                    google.script.run
+                      .withFailureHandler(error => console.error(`Ошибка пакета ${index}:`, error))
+                      .createMeeting(meetingData);
+                  });
 
-                  // Отправка данных
-                  google.script.run
-                    .withSuccessHandler(() => {
-                      setTimeout(() => {
-                        google.script.host.close(); // Задержка перед закрытием
-                        // google.script.run.showRecordDialog(result.id, result.number);
-                      }, 500);
-                    })
-                    .withFailureHandler((error) => {
-                      showAlert(`Ошибка: ${error.message}`);
-                    })
-                    .createMeeting(meetingData);              
-
+                  // Закрытие окса после отправки
+                  setTimeout(() => google.script.host.close(), batches.length * 500);
+                  
               } catch (error) {
                   console.error('Ошибка:', error);
                   showAlert(error.message);

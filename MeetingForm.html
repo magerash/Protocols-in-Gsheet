@@ -329,9 +329,16 @@
     <div class="spinner"></div>
     <div>Загрузка данных...</div>
   </div>
-  
+
+
   <div id="formContainer" style="display: none;">
-    
+
+    <div class="import-section">
+      <button id="importByLink" class="button">Загрузить по ссылке</button>
+      <button id="importFromCalendar" class="button">Выбрать из календаря</button>
+    </div>
+
+
     <div class="input-container">
       <label class="input-label">Дата встречи</label>
       <input id="meetingDateTime" class="input-field" type="datetime-local">      
@@ -767,7 +774,18 @@
                       .createMeeting(meetingData);
         });
       }
+      // ====== Google Meet ========
+      document.getElementById('importFromCalendar').addEventListener('click', () => {
+        google.script.run
+          .withSuccessHandler(events => {
+            google.script.run.showCalendarEvents(events);
+          })
+          .getUpcomingMeetings();
+      });
+
+
     });
+    
   </script>
 
   <div id="customAlert" class="custom-alert">

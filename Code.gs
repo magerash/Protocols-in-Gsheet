@@ -138,13 +138,6 @@ function getEmployees() {
   return employeeCache;
 }
 
-// function getColumn(sheetName, columnName) {
-//   var sheet = SpreadsheetApp.getActive().getSheetByName(sheetName);
-//   var data = sheet.getDataRange().getValues();
-//   var headers = data[0]
-//   return columnNumber = nameColumnIndex1 = headers.findIndex(h => h.trim() === columnName.trim());
-// }
-
 function getRecordTypes() {
   return getTableData('Данные', 'Типы записей');
 }
@@ -175,35 +168,6 @@ function getTableData(sheetName, columnName) {
   } catch (e) {
     console.error('Ошибка в getTableData: ', e);
     throw e; // Перебрасываем ошибку для обработки в вызывающем коде
-  }
-}
-
-function getMeetingAttendees(meetingId) {
-  try {
-    var sheet = SpreadsheetApp.getActive().getSheetByName('Встречи');
-    if (!sheet) throw new Error('Лист "Встречи" не найден');
-    
-    var data = sheet.getDataRange().getValues();
-    if (data.length < 2) return []; // Если нет данных кроме заголовков
-    
-    var headers = data[0];
-    var idCol = headers.indexOf('ID встречи');
-    var attendeeIdsCol = headers.indexOf('ID участников');
-    
-    if (idCol === -1 || attendeeIdsCol === -1) {
-      throw new Error('Не найдены необходимые колонки');
-    }
-    
-    for (var i = 1; i < data.length; i++) {
-      if (data[i][idCol] === meetingId) {
-        var attendeeIds = data[i][attendeeIdsCol];
-        return attendeeIds ? attendeeIds.toString().split(',').map(id => id.trim()).filter(id => id) : [];
-      }
-    }
-    return [];
-  } catch (e) {
-    console.error('Ошибка в getMeetingAttendees: ', e);
-    return [];
   }
 }
 
@@ -283,3 +247,149 @@ function createRecords(recordsData) {
   }
   return `Сохранено ${rows.length} записей`;
 }
+
+// ==== Google meet ====
+
+function getMeetingAttendees(meetingId) {
+  try {
+    var sheet = SpreadsheetApp.getActive().getSheetByName('Встречи');
+    if (!sheet) throw new Error('Лист "Встречи" не найден');
+    
+    var data = sheet.getDataRange().getValues();
+    if (data.length < 2) return []; // Если нет данных кроме заголовков
+    
+    var headers = data[0];
+    var idCol = headers.indexOf('ID встречи');
+    var attendeeIdsCol = headers.indexOf('ID участников');
+    
+    if (idCol === -1 || attendeeIdsCol === -1) {
+      throw new Error('Не найдены необходимые колонки');
+    }
+    
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][idCol] === meetingId) {
+        var attendeeIds = data[i][attendeeIdsCol];
+        return attendeeIds ? attendeeIds.toString().split(',').map(id => id.trim()).filter(id => id) : [];
+      }
+    }
+    return [];
+  } catch (e) {
+    console.error('Ошибка в getMeetingAttendees: ', e);
+    return [];
+  }
+}
+
+// Обновите функцию showCalendarEvents:
+function showCalendarEvents(events) {
+  if (events.length === 0) {
+    return SpreadsheetApp.getUi().alert('⚠️ Нет встреч с Google Meet');
+  }
+
+  const htmlContent = `
+    <style>
+      .event-item { 
+        padding: 12px;
+        margin: 4px;
+        border-radius: 4px;
+        background: #f8f9fa;
+        cursor: pointer;
+      }
+      .meet-link { color: #1a73e8; font-size: 0.9em; }
+    </style>
+    <h3>Выберите встречу (${events.length}):</h3>
+    <div id="events-list">
+      ${events.map(e => `
+        <div class="event-item" data-id="${e.id}">
+          <div><b>${e.title}</b></div>
+          <div>${new Date(e.time).toLocaleDateString()}</div>
+          <div class="meet-link">${e.meetUrl || ''}</div>
+        </div>
+      `).join('')}
+    </div>
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        const items = document.querySelectorAll('.event-item');
+        items.forEach(item => {
+          item.addEventListener('click', () => {
+            google.script.run
+              .withSuccessHandler(data => {
+                google.script.host.close();
+                window.top.postMessage({ 
+                  type: 'EVENT_SELECTED', 
+                  data: {
+                    title: data.title,
+                    time: data.time,
+                    attendees: data.attendees,
+                    description: data.description
+                  }
+                }, '*');
+              })
+              .selectEvent(item.dataset.id);
+          });
+        });
+      });
+    </script>
+  `;
+
+  const html = HtmlService.createHtmlOutput(htmlContent)
+    .setWidth(500)
+    .setHeight(400);
+
+  SpreadsheetApp.getUi().showModalDialog(html, 'Выбор встречи');
+}
+
+function selectEvent(eventId) {
+  const data = getMeetingDataById(eventId);
+  populateForm(data); // Ваша существующая функция заполнения
+  return "Данные загружены";
+}
+
+function getUpcomingMeetings() {
+  try {
+    const calendar = CalendarApp.getDefaultCalendar();
+    const now = new Date();
+    const future = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    
+    const events = calendar.getEvents(now, future); 
+    
+    console.log('Найдено событий:', events.length);
+    events.forEach(e => console.log(e.getTitle(), e.getStartTime()));
+    
+    return events.map(e => ({
+      id: e.getId(),
+      title: e.getTitle() || 'Без названия',
+      time: e.getStartTime() ? e.getStartTime().toISOString() : 'Нет даты'
+    }));
+    
+  } catch (e) {
+    console.error('Ошибка в getUpcomingMeetings:', e);
+    return [];
+  }
+}
+
+function populateForm(data) {
+  // Основные поля
+  document.getElementById('topic').value = data.title;
+  document.getElementById('meetingDateTime').value = formatDateTime(data.time);
+  document.getElementById('description').value = data.description;
+
+  // Участники
+  window.selectedEmails = new Set(data.attendees);
+  updateSelectedOptions();
+
+  // Вложения
+  const attachmentsContainer = document.getElementById('attachments');
+  attachmentsContainer.innerHTML = data.attachments.map(a => `
+    <div class="attachment">
+      <a href="${a.url}" target="_blank">${a.name}</a>
+    </div>
+  `).join('');
+}
+
+function formatDateTime(date) {
+  return new Date(date)
+    .toISOString()
+    .slice(0, 16)
+    .replace('T', ' ');
+}
+

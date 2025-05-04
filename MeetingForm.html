@@ -493,7 +493,7 @@
                     const formattedName = `${firstNameInitial} ${employee.lastName}`;
                     
                     option.innerHTML = `
-                      <span class="employee-name">${employee.displayName}</span>
+                      <span class="employee-name">${employee.firstName} ${employee.lastName}</span>
                       <span class="employee-email">${employee.email}</span>
                     `;
                     
@@ -515,14 +515,7 @@
                 
                 // Инициализация поиска
                 searchInput.addEventListener('input', function() {
-                  const searchTerm = this.value.toLowerCase();
-                  const filtered = applyFilters().filter(employee => {
-                    // Оставляем существующую логику поиска
-                    const fullName = `${employee.firstName} ${employee.lastName}`.toLowerCase();
-                    return fullName.includes(searchTerm) || 
-                          employee.email.toLowerCase().includes(searchTerm);
-                  });
-                  renderOptions(filtered);
+                    renderOptions(applyFilters());
                 });
 
                 function initFilters(employees) {
@@ -550,11 +543,12 @@
 
                   // Обработчики изменений фильтров
                   [orgFilter, deptFilter, unitFilter].forEach(filter => {
-                    filter.addEventListener('change', () => applyFilters());
+                      filter.addEventListener('change', () => renderOptions(applyFilters()));
                   });
                 }
 
                 function fillFilter(select, values) {
+                  select.innerHTML = '<option value="">Все</option>'; // Очищаем перед заполнением
                   const options = Array.from(values)
                     .filter(v => v)
                     .sort()
@@ -567,6 +561,7 @@
                   const org = document.getElementById('organizationFilter').value;
                   const dept = document.getElementById('departmentFilter').value;
                   const unit = document.getElementById('unitFilter').value;
+                  const searchTerm = document.querySelector('.dropdown-search').value.toLowerCase().trim();
 
                   const filtered = window.allEmployees.filter(emp => {
                     return (!org || emp.organization === org) &&
@@ -574,7 +569,22 @@
                           (!unit || emp.unit === unit);
                   });
 
-                  renderOptions(filtered);
+                  return window.allEmployees.filter(emp => {
+                      // Проверяем фильтры
+                      const orgMatch = !org || emp.organization === org;
+                      const deptMatch = !dept || emp.department === dept;
+                      const unitMatch = !unit || emp.unit === unit;
+
+                      // Проверяем поиск
+                      const firstName = (emp.firstName || "").toLowerCase();
+                      const lastName = (emp.lastName || "").toLowerCase();
+                      const email = (emp.email || "").toLowerCase();
+                      const searchMatch = 
+                          `${firstName} ${lastName}`.includes(searchTerm) || 
+                          email.includes(searchTerm);
+
+                      return orgMatch && deptMatch && unitMatch && searchMatch;
+                  });
                 }
                 
                 // Обновление выбранных вариантов
@@ -716,60 +726,46 @@
               isSaving = true;
               btn.disabled = true;
               btn.textContent = 'Сохранение...';
-              
+
+              // Получаем данные
+              const topic = document.getElementById('topic').value.trim();
+              const date = document.getElementById('meetingDateTime').value;
+              const attendees = Array.from(window.selectedEmails || []);  
+
               try {
-                  // Получаем элементы
-                  const topic = document.getElementById('topic').value.trim();
-                  const attendees = Array.from(window.selectedEmails || []);
-                  const date = document.getElementById("meetingDateTime").value;
-
-                  // Проверка темы
-                  if (!topic || topic.length > 500) {
-                    throw new Error("Тема обязательна (макс. 500 символов)");
-                  }
-                  // Проверка участников
-                  if (attendees.length === 0) {
-                    throw new Error("Добавьте минимум 1 участника");
-                  } else if (attendees.length > 200) { // Лимит Google Apps Script
-                    throw new Error("Максимум 200 участников");
-                  }
-                  // Проверка даты
-                  if (!date || isNaN(new Date(date))) {
-                    throw new Error("Некорректная дата");
-                  }
-                  // Форматирование даты
-                  // const formattedDate = new Date(date).toISOString();                  
-                  
-                  // Подготовка данных
-                  const meetingData = {
-                      meetingNumber: window.currentMeetingNumber,
-                      topic: topic,
-                      attendees: attendees,
-                      date: date 
-                  };
-                  console.log(JSON.stringify(meetingData))
-
-                  // Отправка данных
-                  google.script.run
-                    .withSuccessHandler(() => {
-                      setTimeout(() => {
-                        google.script.host.close(); // Задержка перед закрытием
-                        // google.script.run.showRecordDialog(result.id, result.number);
-                      }, 500);
-                    })
-                    .withFailureHandler((error) => {
-                      showAlert(`Ошибка: ${error.message}`);
-                    })
-                    .createMeeting(meetingData);              
-
+                  // Валидация
+                  if (!topic) throw new Error("Введите тему встречи");
+                  if (!date) throw new Error("Выберите дату и время");
+                  if (attendees.length === 0) throw new Error("Добавьте участников");
               } catch (error) {
-                  console.error('Ошибка:', error);
                   showAlert(error.message);
+                  isSaving = false;
                   btn.disabled = false;
                   btn.textContent = 'Сохранить встречу';
-                  isSaving = false;
-              }
-          });
+                  return;
+              }           
+
+                  // Подготовка данных
+                  const meetingData = {
+                    meetingNumber: window.currentMeetingNumber,
+                    topic: topic,
+                    attendees: attendees,
+                    date: date
+                  };
+
+                  // Отправка данных  
+                  google.script.run
+                      .withSuccessHandler(() => {
+                          setTimeout(() => google.script.host.close(), 500);
+                      })
+                      .withFailureHandler(error => {
+                          showAlert(`Ошибка: ${error.message}`);
+                          btn.disabled = false;
+                          btn.textContent = 'Сохранить встречу';
+                          isSaving = false;
+                      })
+                      .createMeeting(meetingData);
+        });
       }
     });
   </script>

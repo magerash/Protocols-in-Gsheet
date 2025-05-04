@@ -5,14 +5,36 @@ function GENERATE_UUID() {
   return Utilities.getUuid();
 }
 
+// ==== ОЧИСТКА КЭША ====
 function onOpen() {
-  var ui = SpreadsheetApp.getUi();
+  const ui = SpreadsheetApp.getUi();
   ui.createMenu('Протоколы')
     .addItem('Создать протокол встречи', 'showMeetingDialog')
     .addItem('Окно записей', 'showRecordDialog')
+    .addSeparator()
+    .addItem('Обновить кэш сотрудников', 'clearEmployeeCache') // Новая кнопка
     .addToUi();
 }
 
+function onEdit(e) {
+  const sheet = e.source.getActiveSheet();
+  if (sheet.getName() === 'Сотрудники') {
+    clearEmployeeCache();
+    SpreadsheetApp.getUi().alert('Кэш сотрудников обновлен!');
+  }
+}
+
+function clearEmployeeCache() {
+  const cache = CacheService.getScriptCache();
+  const allKeys = cache.getAll([]); // Получаем все ключи
+  const ourKeys = Object.keys(allKeys).filter(k => k.startsWith(CACHE_KEY_PREFIX));
+  
+  if (ourKeys.length > 0) {
+    cache.removeAll(ourKeys);
+  }
+}
+
+// ==== 
 function showMeetingDialog() {
   var html = HtmlService.createHtmlOutputFromFile('MeetingForm')
     .setWidth(600)
@@ -47,46 +69,72 @@ function getColumnIndexes(headers) {
 
 function getEmployees() {
   const cache = CacheService.getScriptCache();
-  
-  // 1. Всегда сначала проверяем in-memory кэш
-  if (employeeCache) {
-    console.log('Returning from memory cache');
+  const CACHE_KEY_PREFIX = 'employees_part_'; // Префикс для ключей
+  const CHUNK_SIZE = 90 * 1024; // Добавьте эту строку
+
+  // Проверяем in-memory кэш
+  if (employeeCache) return employeeCache;
+
+  // Получаем ВСЕ ключи из кэша
+  const allKeys = cache.getAll([]); // Пустой массив = все ключи
+  const ourKeys = Object.keys(allKeys).filter(k => k.startsWith(CACHE_KEY_PREFIX));
+
+  if (ourKeys.length > 0) {
+    // Получаем только нужные части
+    const cachedParts = cache.getAll(ourKeys);
+    employeeCache = [];
+    Object.keys(cachedParts)
+      .sort((a, b) => 
+        parseInt(a.replace(CACHE_KEY_PREFIX, '')) - 
+        parseInt(b.replace(CACHE_KEY_PREFIX, ''))
+      )
+      .forEach(key => {
+        employeeCache.push(...JSON.parse(cachedParts[key]));
+      });
     return employeeCache;
   }
 
-  // 2. Проверяем persistent кэш
-  const cached = cache.get('employees');
-  if (cached) {
-    console.log('Loading from script cache');
-    employeeCache = JSON.parse(cached);
-    return employeeCache;
-  }
-  
-  // 3. Загрузка из таблицы если кэши пустые  
-  console.log('Loading fresh data');
+  // Загрузка данных из таблицы
   const sheet = SpreadsheetApp.getActive().getSheetByName('Сотрудники');
-  const data = sheet.getDataRange().getValues(); // Единственный запрос данных
-  const headers = data[0]; // Получаем заголовки из первого элемента данных
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
   const columns = getColumnIndexes(headers);
 
-  // Валидация обязательных колонок
-  if (columns.name === -1) throw new Error('Колонка "Имя" не найдена');
-  if (columns.surname === -1) throw new Error('Колонка "Фамилия" не найдена');
-  if (columns.email === -1) throw new Error('Колонка "Почта" не найдена');
+  employeeCache = data.slice(1).map(row => {
+    const firstName = row[columns.name] || '';
+    const lastName = row[columns.surname] || '';
+    
+    return {
+      id: row[columns.id],
+      firstName: firstName,
+      lastName: lastName,
+      email: row[columns.email],
+      organization: row[columns.org] || '',
+      department: row[columns.dept] || '',
+      unit: row[columns.unit] || '',
+      displayName: `${firstName} ${lastName}`.trim() // Автоматическая генерация
+    };
+  }).filter(e => e.email);
 
-  employeeCache = data.slice(1).map(row => ({
-    id: row[columns.id],
-    firstName: row[columns.name],
-    lastName: row[columns.surname],
-    email: row[columns.email],
-    organization: row[columns.org] || '',
-    department: row[columns.dept] || '',
-    unit: row[columns.unit] || '',
-    displayName: `${row[columns.name]} ${row[columns.surname]}`
-  })).filter(e => e.email);
+  // Разбиваем на части и сохраняем
+  const jsonData = JSON.stringify(employeeCache);
+  const chunks = [];
   
-  // 4. Обновляем оба кэша
-  cache.put('employees', JSON.stringify(employeeCache), CACHE_EXPIRATION);
+  for (let i = 0; i < jsonData.length; i += CHUNK_SIZE) {
+    const chunk = jsonData.substring(i, i + CHUNK_SIZE);
+    chunks.push({
+      key: CACHE_KEY_PREFIX + (i / CHUNK_SIZE),
+      value: chunk,
+      expiration: CACHE_EXPIRATION
+    });
+  }
+
+  const chunkData = {};
+  chunks.forEach((chunk, index) => {
+    chunkData[CACHE_KEY_PREFIX + index] = chunk.value;
+  });
+  cache.putAll(chunkData, CACHE_EXPIRATION);
+
   return employeeCache;
 }
 
@@ -160,53 +208,56 @@ function getMeetingAttendees(meetingId) {
 }
 
 function createMeeting(meetingData) {
-  var sheet = SpreadsheetApp.getActive().getSheetByName('Встречи');
-  var meetingId = Utilities.getUuid();
+  const sheet = SpreadsheetApp.getActive().getSheetByName('Встречи');
+  const meetingId = Utilities.getUuid();
+  const employees = getEmployees();
 
-  // Проверка данных на сервере
-  if (!meetingData.topic || meetingData.topic.length > 500) {
-    throw new Error("Ошибка валидации: тема");
-  }
-
-  if (!meetingData.date || isNaN(new Date(meetingData.date))) {
-    throw new Error("Ошибка валидации: дата");
-  }
+  // Подготовка данных
+  let formattedNames = [];
+  let attendeeIds = [];
   
-  // Получаем данные сотрудников
-  var employees = getEmployees();
-
-  // Формируем данные для сохранения
-  var formattedNames = [];
-  var attendeeIds = [];
-
-  
-  // Обрабатываем каждого участника
-  meetingData.attendees.forEach(email => {
-    var employee = employees.find(e => e.email === email);
-    if (employee) {
-      // Форматируем имя как "И. Иванов"
-      var formattedName = employee.firstName[0].toUpperCase() + '. ' + 
-                         employee.lastName[0].toUpperCase() + 
-                         employee.lastName.slice(1).toLowerCase();
-      
-      formattedNames.push(formattedName);
-      attendeeIds.push(employee.id);
+  try {
+    // 1. Валидация даты
+    const meetingDate = new Date(meetingData.date);
+    if (isNaN(meetingDate.getTime())) {
+      throw new Error("Некорректный формат даты: " + meetingData.date);
     }
-  });
 
-  sheet.appendRow([
-    meetingId,                         // A: ID встречи
-    meetingData.meetingNumber,         // B: Номер встречи
-    meetingData.date,                  // C: Дата создания
-    meetingData.topic,                 // D: Тема
-    formattedNames.join(', '),         // E: Форматированные имена ("И. Иванов, П. Петров")
-    attendeeIds.join(', ')             // F: ID участников через запятую ("1,2,3")
-  ]);
-  
-  return {
-    id: meetingId,
-    number: meetingData.meetingNumber
-  };
+    // 2. Обработка участников
+    meetingData.attendees.forEach(email => {
+      const employee = employees.find(e => e.email === email);
+      if (!employee) {
+        throw new Error(`Сотрудник с email ${email} не найден`);
+      }
+
+      // 3. Форматирование имени
+      const firstNameChar = employee.firstName 
+        ? employee.firstName[0].toUpperCase() + "." 
+        : "";
+      formattedNames.push(`${firstNameChar} ${employee.lastName}`);
+      
+      attendeeIds.push(employee.id);
+    });
+
+    // 4. Запись в таблицу
+    sheet.appendRow([
+      meetingId,                         // A: ID встречи
+      meetingData.meetingNumber,         // B: Номер встречи
+      meetingDate,                      // C: Дата (корректный Date объект)
+      meetingData.topic,                 // D: Тема
+      formattedNames.join(', '),         // E: Имена
+      attendeeIds.join(', ')             // F: ID участников
+    ]);
+
+    return { 
+      id: meetingId, 
+      number: meetingData.meetingNumber 
+    };
+
+  } catch (e) {
+    console.error("Ошибка создания встречи:", e);
+    throw new Error("Не удалось сохранить встречу. " + e.message);
+  }
 }
 
 function createRecords(recordsData) {

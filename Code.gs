@@ -213,8 +213,8 @@ function createMeeting(meetingData) {
   const employees = getEmployees();
 
   // Подготовка данных
-  const formattedNames = [];
-  const attendeeIds = [];
+  let formattedNames = [];
+  let attendeeIds = [];
   
   try {
     // 1. Валидация даты
@@ -226,7 +226,6 @@ function createMeeting(meetingData) {
     // 2. Обработка участников
     meetingData.attendees.forEach(email => {
       const employee = employees.find(e => e.email === email);
-      
       if (!employee) {
         throw new Error(`Сотрудник с email ${email} не найден`);
       }

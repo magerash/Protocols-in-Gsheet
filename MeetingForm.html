@@ -708,7 +708,7 @@
           saveButton.setAttribute('data-initialized', 'true');        
           let isSaving = false;
 
-          saveButton.addEventListener('click', function(event) {
+          saveButton.addEventListener('click', async function(event) {
               event.preventDefault(); 
               if (isSaving) return;
               
@@ -744,25 +744,28 @@
                     batches.push(allAttendees.slice(i, i + batchSize));
                   }
 
-                  // Отправка пакетов
+                  // Подготовка данных
                   const meetingData = {
                     meetingNumber: window.currentMeetingNumber,
                     topic: document.getElementById("topic").value.trim(),
                     attendees: Array.from(window.selectedEmails),
                     date: document.getElementById("meetingDateTime").value
                   };
-                    
-                    google.script.run
-                      .withFailureHandler(error => console.error(`Ошибка пакета ${index}:`, error))
-                      .createMeeting(meetingData);
-                  });
 
-                  // Закрытие окса после отправки
-                  setTimeout(() => google.script.host.close(), batches.length * 500);
+                  // Отправка данных  
+                  await google.script.run
+                      .withSuccessHandler(() => {
+                          setTimeout(() => google.script.host.close(), 500);
+                      })
+                      .withFailureHandler(error => {
+                          throw new Error(error.message);
+                      })
+                      .createMeeting(meetingData);
                   
               } catch (error) {
                   console.error('Ошибка:', error);
                   showAlert(error.message);
+               } finally {    
                   btn.disabled = false;
                   btn.textContent = 'Сохранить встречу';
                   isSaving = false;

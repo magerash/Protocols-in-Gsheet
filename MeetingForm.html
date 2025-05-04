@@ -321,6 +321,25 @@
       border-radius: 4px;
       font-size: 14px;
     }
+    .button-dev {
+      background-color: #dc3545 !important;
+      float: none;
+      margin: 8px 0;
+      cursor: pointer !important;
+      opacity: 1 !important;
+    }
+
+    .button-dev:hover {
+      background-color: #c82333 !important;
+      filter: brightness(90%);
+    }
+
+    .import-section {
+      margin: 16px 0;
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+    }
   </style>
 </head>
 <body>
@@ -332,12 +351,6 @@
 
 
   <div id="formContainer" style="display: none;">
-
-    <div class="import-section">
-      <button id="importByLink" class="button">Загрузить по ссылке</button>
-      <button id="importFromCalendar" class="button">Выбрать из календаря</button>
-    </div>
-
 
     <div class="input-container">
       <label class="input-label">Дата встречи</label>
@@ -384,6 +397,18 @@
     </div>    
 
     <button id="saveMeeting" class="button">Сохранить встречу</button>
+    
+    <div class="input-container">
+      <label class="input-label"></label>
+    </div>
+    <div class="input-container">
+      <label class="input-label">wip</label>
+      <div class="import-section">
+        <button id="importByLink" class="button button-dev" >Загрузить по ссылке</button>
+        <button id="importFromCalendar" class="button button-dev" >Выбрать из календаря</button>
+      </div>
+    </div>
+
   </div>
 
   <script>
@@ -777,13 +802,14 @@
       // ====== Google Meet ========
       document.getElementById('importFromCalendar').addEventListener('click', () => {
         google.script.run
-          .withSuccessHandler(events => {
-            google.script.run.showCalendarEvents(events);
+          .withSuccessHandler(html => {
+            const div = document.createElement('div');
+            div.innerHTML = html;
+            document.body.appendChild(div);
           })
-          .getUpcomingMeetings();
+          .withFailureHandler(error => console.error('Ошибка:', error))
+          .showCalendarEventsModal();
       });
-
-
     });
     
   </script>

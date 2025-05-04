@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    /* Добавить недостающие стили */
+    body {
+      padding: 20px;
+      font-family: 'Roboto', Arial, sans-serif;
+    }
+    .button {
+      background: #1a73e8;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .date-filter {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    .input-field {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #dadce0;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="date-filter">
+    <input type="date" id="startDate" class="input-field">
+    <input type="date" id="endDate" class="input-field">
+    <button onclick="loadEvents()" class="button">Поиск</button>
+  </div>
+
+  <div id="eventsList"></div>
+
+  <script>
+    function loadEvents() {
+      const start = document.getElementById('startDate').value;
+      const end = document.getElementById('endDate').value;
+      
+      google.script.run
+        .withSuccessHandler(renderEvents)
+        .withFailureHandler(error => alert('Ошибка: ' + error.message))
+        .getUpcomingMeetings(start, end);
+    }
+
+    function renderEvents(events) {
+      const container = document.getElementById('eventsList');
+      container.innerHTML = events.map(e => `
+        <div class="event-item" onclick="selectEvent('${e.id}')">
+          <b>${e.title}</b><br>
+          ${new Date(e.time).toLocaleString()}
+        </div>
+      `).join('');
+    }
+
+    function selectEvent(eventId) {
+      google.script.run
+        .withSuccessHandler(() => google.script.host.close())
+        .selectEvent(eventId);
+    }
+
+    // Инициализация дат
+    window.onload = function() {
+      const now = new Date();
+      const startDate = new Date(now.setDate(now.getDate() - 3)).toISOString().split('T')[0];
+      const endDate = new Date(now.setDate(now.getDate() + 6)).toISOString().split('T')[0];
+      
+      document.getElementById('startDate').value = startDate;
+      document.getElementById('endDate').value = endDate;
+      loadEvents();
+    };
+  </script>
+</body>
+</html>

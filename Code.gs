@@ -279,92 +279,41 @@ function getMeetingAttendees(meetingId) {
   }
 }
 
-// Обновите функцию showCalendarEvents:
-function showCalendarEvents(events) {
-  if (events.length === 0) {
-    return SpreadsheetApp.getUi().alert('⚠️ Нет встреч с Google Meet');
+function showCalendarEventsModal() {
+  try {
+    const html = HtmlService.createHtmlOutputFromFile('CalendarEventsModal')
+      .setWidth(500)
+      .setHeight(400);
+    SpreadsheetApp.getUi().showModalDialog(html, 'Выбор события из календаря');
+  } catch(e) {
+    console.error('Ошибка открытия окна:', e);
+    throw new Error('Не удалось открыть окно календаря');
   }
+}
 
-  const htmlContent = `
-    <style>
-      .event-item { 
-        padding: 12px;
-        margin: 4px;
-        border-radius: 4px;
-        background: #f8f9fa;
-        cursor: pointer;
-      }
-      .meet-link { color: #1a73e8; font-size: 0.9em; }
-    </style>
-    <h3>Выберите встречу (${events.length}):</h3>
-    <div id="events-list">
-      ${events.map(e => `
-        <div class="event-item" data-id="${e.id}">
-          <div><b>${e.title}</b></div>
-          <div>${new Date(e.time).toLocaleDateString()}</div>
-          <div class="meet-link">${e.meetUrl || ''}</div>
-        </div>
-      `).join('')}
-    </div>
-    <script>
-      document.addEventListener('DOMContentLoaded', () => {
-        const items = document.querySelectorAll('.event-item');
-        items.forEach(item => {
-          item.addEventListener('click', () => {
-            google.script.run
-              .withSuccessHandler(data => {
-                google.script.host.close();
-                window.top.postMessage({ 
-                  type: 'EVENT_SELECTED', 
-                  data: {
-                    title: data.title,
-                    time: data.time,
-                    attendees: data.attendees,
-                    description: data.description
-                  }
-                }, '*');
-              })
-              .selectEvent(item.dataset.id);
-          });
-        });
-      });
-    </script>
-  `;
-
-  const html = HtmlService.createHtmlOutput(htmlContent)
-    .setWidth(500)
-    .setHeight(400);
-
-  SpreadsheetApp.getUi().showModalDialog(html, 'Выбор встречи');
+function getUpcomingMeetings(startDate, endDate) {
+  try {
+    const calendar = CalendarApp.getDefaultCalendar();
+    const start = startDate ? new Date(startDate) : new Date(Date.now() - 3*86400000);
+    const end = endDate ? new Date(endDate) : new Date(Date.now() + 3*86400000);
+    
+    return calendar.getEvents(start, end).map(e => ({
+      id: e.getId().split('@')[0], // Фикс для короткого ID
+      title: e.getTitle() || 'Без названия',
+      time: e.getStartTime() ? e.getStartTime().toISOString() : 'Нет даты',
+      meetUrl: e.getLocation()
+    }));
+    
+  } catch(e) {
+    console.error('Calendar API Error:', e);
+    throw new Error('Ошибка загрузки событий календаря');
+  }
 }
 
 function selectEvent(eventId) {
   const data = getMeetingDataById(eventId);
   populateForm(data); // Ваша существующая функция заполнения
   return "Данные загружены";
-}
-
-function getUpcomingMeetings() {
-  try {
-    const calendar = CalendarApp.getDefaultCalendar();
-    const now = new Date();
-    const future = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-    
-    const events = calendar.getEvents(now, future); 
-    
-    console.log('Найдено событий:', events.length);
-    events.forEach(e => console.log(e.getTitle(), e.getStartTime()));
-    
-    return events.map(e => ({
-      id: e.getId(),
-      title: e.getTitle() || 'Без названия',
-      time: e.getStartTime() ? e.getStartTime().toISOString() : 'Нет даты'
-    }));
-    
-  } catch (e) {
-    console.error('Ошибка в getUpcomingMeetings:', e);
-    return [];
-  }
 }
 
 function populateForm(data) {

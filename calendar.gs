@@ -43,25 +43,42 @@ function showCalendarEventsModal() {
 
 function getUpcomingMeetings(startDate, endDate) {
   try {
+    const employees = getEmployees();
+    const emailMap = new Map();
+    
+    // Создаем карту email → "Имя Фамилия"
+    employees.forEach(emp => {
+      if (emp.email && emp.firstName && emp.lastName) {
+        const fullName = `${emp.firstName} ${emp.lastName}`.trim();
+        emailMap.set(emp.email.toLowerCase(), fullName);
+      }
+    });
+
     const calendar = CalendarApp.getDefaultCalendar();
     const events = calendar.getEvents(new Date(startDate), new Date(endDate));
     
     return events.map(e => {
+      const creatorEmail = e.getCreators()[0].toLowerCase();
+      const organizer = emailMap.get(creatorEmail) || creatorEmail.split('@')[0];
+
       const participants = e.getGuestList()
         .filter(g => g.getGuestStatus() !== CalendarApp.GuestStatus.NO)
-        .map(g => g.getEmail());
-        
+        .map(g => {
+          const email = g.getEmail().toLowerCase();
+          return emailMap.get(email) || email.split('@')[0];
+        });
+
       return {
         id: e.getId().split('@')[0],
-        title: e.getTitle() || 'Без названия',
+        title: e.getTitle(),
         startTime: e.getStartTime()?.toISOString(),
         endTime: e.getEndTime()?.toISOString(),
-        location: e.getLocation() || '',
-        organizer: e.getCreators()[0],
+        location: e.getLocation(),
+        timeZone: Session.getScriptTimeZone(),
+        organizer: organizer,
         participants: participants
       };
-    });    
-
+    });
   } catch(e) {
     console.error('Calendar API Error:', e);
     throw new Error('Ошибка загрузки событий календаря');

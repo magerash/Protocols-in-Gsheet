@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    /* Добавить недостающие стили */
+    body {
+      padding: 20px;
+      font-family: 'Roboto', Arial, sans-serif;
+    }
+    .button {
+      background: #1a73e8;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .date-filter {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    .input-field {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #dadce0;
+      border-radius: 4px;
+    }
+
+    /* Основные стили карточки */
+    .event-card {
+      background: #ffffff;
+      border-radius: 8px;
+      padding: 14px;
+      margin: 8px 0;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+      border: 1px solid #e0e0e0;
+      transition: transform 0.15s ease;
+    }
+
+    .event-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    /* Заголовок встречи */
+    .event-title {
+      color: #202124;
+      font-size: 15px;
+      font-weight: 500;
+      margin-bottom: 6px;
+    }
+
+    /* Временной блок */
+    .time-block {
+      color: #5f6368;
+      font-size: 0.9em;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Иконка времени */
+    .time-icon {
+      width: 16px;
+      height: 16px;
+      opacity: 0.7;
+    }
+
+    /* Локация */
+    .location-block {
+      color: #188038;
+      font-size: 0.9em;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    /* Стили чипсов */
+    .organizer-chip {
+      background: #d3f9d8 !important;
+      color: #2b8a3e !important;
+      padding: 4px 12px;
+      border-radius: 16px;
+      font-size: 0.9em;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .participant-chip {
+      background: #e7f5ff !important;
+      color: #1864ab !important;
+      padding: 4px 12px;
+      border-radius: 16px;
+      font-size: 0.9em;
+      max-width: 140px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Компактные строки */
+    .info-row {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      margin: 6px 0;
+    }
+
+    .info-label {
+      color: #5f6368;
+      font-size: 0.9em;
+      white-space: nowrap;
+    }
+
+    .info-value {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .time-range {
+      color: #202124;
+      font-weight: 500;
+    }
+
+    .location-text {
+      color: #188038;
+    }
+
+    /* Добавить в секцию стилей */
+    .loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(255, 255, 255, 0.9);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      flex-direction: column;
+    }
+
+    .loading-spinner {
+      border: 3px solid #f1f3f4;
+      border-top: 3px solid #1a73e8;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin-bottom: 16px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .button:disabled {
+      background-color: #e0e0e0 !important;
+      cursor: not-allowed;
+      opacity: 0.7;
+    }
+    
+  </style>
+</head>
+<body>
+  <div class="loading-overlay" id="loading">
+    <div class="loading-spinner"></div>
+    <div>Загрузка...</div>
+  </div>
+
+  <div class="date-filter">
+    <input type="date" id="startDate" class="input-field">
+    <input type="date" id="endDate" class="input-field">
+    <button id="searchButton" onclick="loadEvents()" class="button">Поиск</button>
+  </div>
+
+  <div id="eventsList"></div>
+
+  <script>
+    async function loadEvents() {
+      const loading = document.getElementById('loading');
+      const searchBtn = document.getElementById('searchButton');
+      
+      try {
+        // Блокируем элементы
+        searchBtn.disabled = true;
+        loading.style.display = 'flex';
+
+        const start = document.getElementById('startDate').value;
+        const end = document.getElementById('endDate').value;
+
+        const events = await new Promise((resolve, reject) => {
+          google.script.run
+            .withSuccessHandler(resolve)
+            .withFailureHandler(reject)
+            .getUpcomingMeetings(start, end);
+        });
+
+        renderEvents(events);
+      } catch (error) {
+        alert('Ошибка загрузки: ' + error.message);
+      } finally {
+        searchBtn.disabled = false;
+        loading.style.display = 'none';
+      }
+    }
+
+    function formatTime(isoString, timeZone) {
+      if (!isoString) return '';
+      const options = { 
+        hour: '2-digit',
+        minute: '2-digit'
+      };
+      return new Date(isoString)
+        .toLocaleTimeString('ru-RU', {...options, timeZone});
+    }
+
+    function formatName(str) {
+      // Если строка содержит @, обрезаем домен
+      return str.includes('@') 
+        ? str.split('@')[0] 
+        : str;
+    }
+
+    function renderEvents(events) {
+      const container = document.getElementById('eventsList');
+      container.innerHTML = events.map(e => `
+        <div class="event-card" onclick="selectEvent('${e.id}')">
+          <!-- Заголовок -->
+          <div class="event-title">${e.title || 'Встреча без названия'}</div>
+
+          <!-- Время -->
+          <div class="info-row">
+            <span class="info-label">Время:</span>
+            <div class="info-value">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <circle cx="12" cy="12" r="7.5"/>
+                <path d="M12 7v5l2.5 2.5"/>
+              </svg>
+              <span class="time-range">
+                ${formatTime(e.startTime, e.timeZone)} – ${formatTime(e.endTime, e.timeZone)}
+              </span>
+            </div>
+          </div>
+
+          ${e.location ? `
+          <!-- Место -->
+          <div class="info-row">
+            <span class="info-label">Место:</span>
+            <div class="info-value">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+                <circle cx="12" cy="9" r="2.5"/>
+              </svg>
+              <span class="location-text">${e.location}</span>
+            </div>
+          </div>
+          ` : ''}
+
+          <!-- Организатор -->
+          <div class="info-row">
+            <span class="info-label">Организатор:</span>
+            <div class="organizer-chip">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="8.5" cy="7" r="4"></circle>
+              </svg>
+              ${e.organizer}
+            </div>
+          </div>
+
+          ${e.participants.length > 0 ? `
+          <!-- Участники -->
+          <div class="info-row">
+            <span class="info-label">Участники:</span>
+            <div class="info-value">
+              ${e.participants.slice(0,3).map(p => `
+                <div class="participant-chip">${formatName(p)}</div>
+              `).join('')}
+              ${e.participants.length > 3 ? `
+                <div class="participant-chip">+${e.participants.length - 3}</div>
+              ` : ''}
+            </div>
+          </div>
+          ` : ''}
+        </div>
+      `).join('');
+    }
+
+    // Обновленный обработчик выбора события
+    async function selectEvent(eventId) {
+      const cards = document.querySelectorAll('.event-card');
+      const loading = document.getElementById('loading');
+      
+      try {
+        loading.style.display = 'flex';
+        cards.forEach(c => c.style.pointerEvents = 'none');
+
+        await new Promise((resolve, reject) => {
+          google.script.run
+            .withSuccessHandler(resolve)
+            .withFailureHandler(reject)
+            .selectEvent(eventId);
+        });
+
+        google.script.host.close();
+      } catch (error) {
+        alert('Ошибка выбора: ' + error.message);
+      } finally {
+        loading.style.display = 'none';
+        cards.forEach(c => c.style.pointerEvents = 'auto');
+      }
+    }
+
+    // Инициализация дат
+    window.onload = function() {
+      const now = new Date();
+      const startDate = new Date(now.setDate(now.getDate() - 3)).toISOString().split('T')[0];
+      const endDate = new Date(now.setDate(now.getDate() + 6)).toISOString().split('T')[0];
+      
+      document.getElementById('startDate').value = startDate;
+      document.getElementById('endDate').value = endDate;
+      loadEvents();
+    };
+  </script>
+</body>
+</html>

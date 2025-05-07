@@ -321,6 +321,26 @@
       border-radius: 4px;
       font-size: 14px;
     }
+    .button-dev {
+      background-color: #a084b1 !important;
+      float: none;
+      margin: 8px 0;
+      cursor: pointer !important;
+      opacity: 1 !important;
+    }
+
+    .button-dev:hover {
+      background-color: #9866b6 !important;
+      filter: brightness(90%);
+    }
+
+    .import-section {
+      margin: 16px 0;
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
   </style>
 </head>
 <body>
@@ -329,9 +349,10 @@
     <div class="spinner"></div>
     <div>Загрузка данных...</div>
   </div>
-  
+
+
   <div id="formContainer" style="display: none;">
-    
+
     <div class="input-container">
       <label class="input-label">Дата встречи</label>
       <input id="meetingDateTime" class="input-field" type="datetime-local">      
@@ -345,6 +366,7 @@
     <div class="input-container">
       <label class="input-label">Участники</label>
     </div>
+
     <div class="input-container">
       <label class="input-label">Фильтры</label>
       <div class="filter-group">
@@ -376,7 +398,42 @@
       <input type="hidden" id="attendees" name="attendees">
     </div>    
 
-    <button id="saveMeeting" class="button">Сохранить встречу</button>
+    <div class="input-container">
+      <button id="saveMeeting" class="button">Сохранить встречу</button>
+    </div>
+
+    <div class="input-container">
+      <div class="input-container">
+        <label class="input-label">    </label>
+        <label class="input-label">    </label>
+        <label class="input-label">    </label>
+        <label class="input-label">    </label>
+      </div>
+    </div>
+
+    
+    <div class="input-container">
+      <div class="input-container">
+        <label class="input-label">    </label>
+        <label class="input-label">    </label>
+        <label class="input-label">    </label>
+        <label class="input-label">    </label>
+        <label class="input-label">    </label>
+      </div>
+    </div>
+
+
+    <div class="input-container">
+      <div class="input-container">
+        <label class="input-label">__________________________________________________________________________________________</label>
+        <div class="import-section">
+          <button id="importFromCalendar" class="button button-dev" >Выбрать из календаря</button>
+          <!-- <button id="importByLink" class="button button-dev" >Загрузить по ссылке</button> -->
+        </div>
+      </div>
+    </div>
+
+
   </div>
 
   <script>
@@ -767,7 +824,19 @@
                       .createMeeting(meetingData);
         });
       }
+      // ====== Google Meet ========
+      document.getElementById('importFromCalendar').addEventListener('click', () => {
+        google.script.run
+          .withSuccessHandler(html => {
+            const div = document.createElement('div');
+            div.innerHTML = html;
+            document.body.appendChild(div);
+          })
+          .withFailureHandler(error => console.error('Ошибка:', error))
+          .showCalendarEventsModal();
+      });
     });
+    
   </script>
 
   <div id="customAlert" class="custom-alert">

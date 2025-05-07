@@ -6,16 +6,6 @@ function GENERATE_UUID() {
 }
 
 // ==== ОЧИСТКА КЭША ====
-function onOpen() {
-  const ui = SpreadsheetApp.getUi();
-  ui.createMenu('Протоколы')
-    .addItem('Создать протокол встречи', 'showMeetingDialog')
-    .addItem('Окно записей', 'showRecordDialog')
-    .addSeparator()
-    .addItem('Обновить кэш сотрудников', 'clearEmployeeCache') // Новая кнопка
-    .addToUi();
-}
-
 function onEdit(e) {
   const sheet = e.source.getActiveSheet();
   if (sheet.getName() === 'Сотрудники') {
@@ -35,20 +25,7 @@ function clearEmployeeCache() {
 }
 
 // ==== 
-function showMeetingDialog() {
-  var html = HtmlService.createHtmlOutputFromFile('MeetingForm')
-    .setWidth(600)
-    .setHeight(650);
-  SpreadsheetApp.getUi().showModalDialog(html, 'Новая встреча');
-}
 
-function showRecordDialog(meetingId, meetingNumber) {
-  var html = HtmlService.createHtmlOutputFromFile('RecordForm')
-    .setWidth(800)
-    .setHeight(650);
-  SpreadsheetApp.getUi().showModalDialog(html, 'Протокол №' + (meetingNumber || ''));
-  PropertiesService.getScriptProperties().setProperty('currentMeetingId', meetingId);
-}
 
 function getNextMeetingNumber() {
   var sheet = SpreadsheetApp.getActive().getSheetByName('Встречи');
@@ -138,13 +115,6 @@ function getEmployees() {
   return employeeCache;
 }
 
-// function getColumn(sheetName, columnName) {
-//   var sheet = SpreadsheetApp.getActive().getSheetByName(sheetName);
-//   var data = sheet.getDataRange().getValues();
-//   var headers = data[0]
-//   return columnNumber = nameColumnIndex1 = headers.findIndex(h => h.trim() === columnName.trim());
-// }
-
 function getRecordTypes() {
   return getTableData('Данные', 'Типы записей');
 }
@@ -175,35 +145,6 @@ function getTableData(sheetName, columnName) {
   } catch (e) {
     console.error('Ошибка в getTableData: ', e);
     throw e; // Перебрасываем ошибку для обработки в вызывающем коде
-  }
-}
-
-function getMeetingAttendees(meetingId) {
-  try {
-    var sheet = SpreadsheetApp.getActive().getSheetByName('Встречи');
-    if (!sheet) throw new Error('Лист "Встречи" не найден');
-    
-    var data = sheet.getDataRange().getValues();
-    if (data.length < 2) return []; // Если нет данных кроме заголовков
-    
-    var headers = data[0];
-    var idCol = headers.indexOf('ID встречи');
-    var attendeeIdsCol = headers.indexOf('ID участников');
-    
-    if (idCol === -1 || attendeeIdsCol === -1) {
-      throw new Error('Не найдены необходимые колонки');
-    }
-    
-    for (var i = 1; i < data.length; i++) {
-      if (data[i][idCol] === meetingId) {
-        var attendeeIds = data[i][attendeeIdsCol];
-        return attendeeIds ? attendeeIds.toString().split(',').map(id => id.trim()).filter(id => id) : [];
-      }
-    }
-    return [];
-  } catch (e) {
-    console.error('Ошибка в getMeetingAttendees: ', e);
-    return [];
   }
 }
 
@@ -283,3 +224,4 @@ function createRecords(recordsData) {
   }
   return `Сохранено ${rows.length} записей`;
 }
+

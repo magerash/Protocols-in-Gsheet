@@ -342,7 +342,15 @@
       gap: 8px;
       justify-content: flex-end;
     }
-
+    .modal-backdrop {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+    }
   </style>
 </head>
 <body>
@@ -486,7 +494,15 @@
         }
       }, 100);
 
-      
+      // Добавьте функцию для загрузки данных
+      function loadSelectedEventData() {
+        google.script.run
+          .withSuccessHandler(data => {
+            if (data) populateForm(data);
+          })
+          .getSelectedEventData();
+      }
+
       function loadMeetingNumber() {
         return new Promise(function(resolve) {
           google.script.run.withSuccessHandler(function(number) {
@@ -932,6 +948,8 @@
       window.addEventListener('message', event => {
         if (event.data.type === 'RELOAD_FORM') {
           window.location.reload();
+          google.script.run.showMeetingDialog();
+         
         }
       });
 

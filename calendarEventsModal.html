@@ -297,23 +297,16 @@
       `).join('');
     }
 
-    // Обновленный обработчик выбора события
+    // Замените функцию selectEvent
     function selectEvent(eventId) {
       const loading = document.getElementById('loading');
       loading.style.display = 'flex';
 
       google.script.run
         .withSuccessHandler(data => {
-          // Сохраняем данные в свойства скрипта
+          // Сохраняем данные и закрываем окно
           google.script.run
-            .withSuccessHandler(() => {
-              // Закрываем окно выбора
-              google.script.host.close();
-              // Обновляем основное окно
-              google.script.host
-                .getContainer()
-                .postMessage({ type: 'RELOAD_FORM' });
-            })
+            .withSuccessHandler(() => google.script.host.close())
             .saveSelectedEventData(data);
         })
         .withFailureHandler(error => {

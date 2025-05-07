@@ -445,44 +445,71 @@
 
   <script>
     document.addEventListener('DOMContentLoaded', function() {
-      // Загружаем данные асинхронно
       Promise.all([
-        loadMeetingNumber(),
-        loadEmployees()
+          loadMeetingNumber(),
+          loadEmployees()
       ]).then(function() {
-        // Скрываем индикатор и показываем форму
-        document.getElementById('loadingContainer').style.display = 'none';
-        document.getElementById('formContainer').style.display = 'block';
+          // Скрываем индикатор и показываем форму
+          document.getElementById('loadingContainer').style.display = 'none';
+          document.getElementById('formContainer').style.display = 'block';
 
-        // Проверка сохраненных данных
-        google.script.run
-          .withSuccessHandler(data => {
-            if (data) {
-              populateForm(data);
-              google.script.run.clearSelectedEventData();
-            }
-          })
-          .getSelectedEventData();
+          // Инициализация компонентов
+          initDateTimePicker();
+          setupDropdownBehavior();
+          loadSelectedEventData();
 
-        // 1. Получаем элемент
-        const datetimeInput = document.getElementById('meetingDateTime');
-        
-        // 2. Устанавливаем текущие дату и время по умолчанию
-        if(datetimeInput) {
-          const now = new Date();
-          
-          // Корректируем время для формата datetime-local
-          const timezoneOffset = now.getTimezoneOffset() * 60000;
-          const localDateTime = new Date(now - timezoneOffset);
-          
-          datetimeInput.value = localDateTime.toISOString().slice(0, 16);
-        }
-      })
-      .catch(function(error) {
-        console.error('Ошибка загрузки:', error);
-        document.getElementById('loadingContainer').innerHTML = 
-          '<div style="color: #d93025;">Ошибка загрузки данных. Пожалуйста, попробуйте еще раз.</div>';
+          // Установка даты по умолчанию
+          const datetimeInput = document.getElementById('meetingDateTime');
+          if(datetimeInput) {
+              const now = new Date();
+              const timezoneOffset = now.getTimezoneOffset() * 60000;
+              datetimeInput.value = new Date(now - timezoneOffset).toISOString().slice(0,16);
+          }
+      }).catch(function(error) {
+          console.error('Ошибка загрузки:', error);
+          document.getElementById('loadingContainer').innerHTML = 
+              '<div style="color: #d93025;">Ошибка загрузки данных</div>';
       });
+      
+      // Загружаем данные асинхронно
+      // Promise.all([
+      //   loadMeetingNumber(),
+      //   loadEmployees()
+      // ]).then(function() {
+      //   // Скрываем индикатор и показываем форму
+      //   // document.getElementById('loadingContainer').style.display = 'none';
+      //   // document.getElementById('formContainer').style.display = 'block';
+
+      //   // Проверка сохраненных данных
+      //   google.script.run
+      //     .withSuccessHandler(data => {
+      //       if (data) {
+      //         populateForm(data);
+      //         google.script.run.clearSelectedEventData();
+      //       }
+      //     })
+      //     .getSelectedEventData();
+
+      //   // 1. Получаем элемент
+      //   const datetimeInput = document.getElementById('meetingDateTime');
+        
+      //   // 2. Устанавливаем текущие дату и время по умолчанию
+      //   if(datetimeInput) {
+      //     const now = new Date();
+          
+      //     // Корректируем время для формата datetime-local
+      //     const timezoneOffset = now.getTimezoneOffset() * 60000;
+      //     const localDateTime = new Date(now - timezoneOffset);
+          
+      //     datetimeInput.value = localDateTime.toISOString().slice(0, 16);
+      //   }
+      // })
+
+      // .catch(function(error) {
+      //   console.error('Ошибка загрузки:', error);
+      //   document.getElementById('loadingContainer').innerHTML = 
+      //     '<div style="color: #d93025;">Ошибка загрузки данных. Пожалуйста, попробуйте еще раз.</div>';
+      // });
 
       // Инициализация кнопки после полной загрузки
       setTimeout(() => {
@@ -498,9 +525,29 @@
       function loadSelectedEventData() {
         google.script.run
           .withSuccessHandler(data => {
-            if (data) populateForm(data);
+            if (data) {
+              populateForm(data);
+              google.script.run.clearSelectedEventData();
+            }
           })
           .getSelectedEventData();
+      }
+
+      function initDateTimePicker() {
+        const datetimeInput = document.getElementById('meetingDateTime');
+        if (!datetimeInput) return;
+
+        // Установка текущей даты и времени
+        const now = new Date();
+        const timezoneOffset = now.getTimezoneOffset() * 60000;
+        const localDateTime = new Date(now - timezoneOffset);
+        
+        datetimeInput.value = localDateTime.toISOString().slice(0, 16);
+        
+        // Дополнительные настройки можно добавить здесь
+        // Например, минимальную/максимальную дату:
+        // datetimeInput.min = '2024-01-01T00:00';
+        // datetimeInput.max = '2025-12-31T23:59';
       }
 
       function loadMeetingNumber() {
@@ -828,18 +875,25 @@
       }
 
       function populateForm(data) {
-        // Заполнение полей формы
+        // Основные поля
         document.getElementById('topic').value = data.title || '';
         
-        if (data.time) {
-          const date = new Date(data.time);
+        // Форматирование даты
+        if (data.startTime) { // Используем startTime вместо time
+          const date = new Date(data.startTime);
           const offset = date.getTimezoneOffset() * 60000;
           document.getElementById('meetingDateTime').value = 
             new Date(date - offset).toISOString().slice(0, 16);
         }
 
+        // Участники
         window.selectedEmails = new Set(data.attendees || []);
-        updateSelectedOptions();
+        updateSelectedOptions(); // Явный вызов обновления интерфейса
+
+        // Место (если есть соответствующее поле)
+        if (data.location && document.getElementById('location')) {
+          document.getElementById('location').value = data.location;
+        }
       }
 
       // ====== ИНИЦИАЛАЙЗЕРЫ ========

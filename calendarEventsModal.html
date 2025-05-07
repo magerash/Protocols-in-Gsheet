@@ -304,14 +304,15 @@
 
       google.script.run
         .withSuccessHandler(data => {
-          // Сохраняем данные и закрываем окно
           google.script.run
-            .withSuccessHandler(() => google.script.host.close())
+            .withSuccessHandler(() => {
+              google.script.host.close();
+              // Обновляем основную форму
+              google.script.run
+                .withSuccessHandler(() => window.top.location.reload())
+                .showMeetingDialog();
+            })
             .saveSelectedEventData(data);
-        })
-        .withFailureHandler(error => {
-          loading.style.display = 'none';
-          alert('Ошибка: ' + error.message);
         })
         .selectEvent(eventId);
     }

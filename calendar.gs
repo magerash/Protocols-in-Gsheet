@@ -85,30 +85,6 @@ function getUpcomingMeetings(startDate, endDate) {
   }
 }
 
-function selectEvent(eventId) {
-  try {
-    const event = getEventById(eventId); // Используем существующую функцию поиска
-    const employees = getEmployees();
-    const emailMap = new Map(employees.map(e => [e.email, e]));
-    
-    // Формируем данные для формы
-    const data = {
-      title: event.getTitle(),
-      time: event.getStartTime().toISOString(),
-      description: event.getDescription() || '',
-      attendees: event.getGuestList()
-        .filter(g => g.getGuestStatus() !== CalendarApp.GuestStatus.NO)
-        .map(g => g.getEmail()),
-      attachments: [] // В календаре нет вложений, оставляем пустым
-    };
-
-    return data;
-    
-  } catch(e) {
-    console.error('Ошибка выбора события:', e);
-    throw new Error('Не удалось загрузить данные встречи');
-  }
-}
 
 // Вспомогательная функция
 function getEventById(eventId) {
@@ -144,7 +120,7 @@ function getSelectedEventData() {
   return data ? JSON.parse(data) : null;
 }
 
-function cleanSelectedEventData() {
+function clearSelectedEventData() {
   PropertiesService.getScriptProperties()
     .deleteProperty('SELECTED_EVENT');
 }

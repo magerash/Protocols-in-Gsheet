@@ -1,33 +1,5 @@
 // ==== Google meet ====
-
-// function getMeetingAttendees(meetingId) {
-//   try {
-//     var sheet = SpreadsheetApp.getActive().getSheetByName('Встречи');
-//     if (!sheet) throw new Error('Лист "Встречи" не найден');
-    
-//     var data = sheet.getDataRange().getValues();
-//     if (data.length < 2) return []; // Если нет данных кроме заголовков
-    
-//     var headers = data[0];
-//     var idCol = headers.indexOf('ID встречи');
-//     var attendeeIdsCol = headers.indexOf('ID участников');
-    
-//     if (idCol === -1 || attendeeIdsCol === -1) {
-//       throw new Error('Не найдены необходимые колонки');
-//     }
-    
-//     for (var i = 1; i < data.length; i++) {
-//       if (data[i][idCol] === meetingId) {
-//         var attendeeIds = data[i][attendeeIdsCol];
-//         return attendeeIds ? attendeeIds.toString().split(',').map(id => id.trim()).filter(id => id) : [];
-//       }
-//     }
-//     return [];
-//   } catch (e) {
-//     console.error('Ошибка в getMeetingAttendees: ', e);
-//     return [];
-//   }
-// }
+// calendar.gs
 
 function showCalendarEventsModal() {
   try {
@@ -85,6 +57,21 @@ function getUpcomingMeetings(startDate, endDate) {
   }
 }
 
+function selectEvent(eventId) {
+  try {
+    const event = getEventById(eventId); // Используйте существующую функцию поиска
+    const data = {
+      title: event.getTitle(),
+      startTime: event.getStartTime().toISOString(),
+      endTime: event.getEndTime().toISOString(),
+      location: event.getLocation(),
+      attendees: event.getGuestList().map(g => g.getEmail())
+    };
+    return data;
+  } catch(e) {
+    throw new Error("Не удалось загрузить данные встречи: " + e.message);
+  }
+}
 
 // Вспомогательная функция
 function getEventById(eventId) {

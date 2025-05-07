@@ -297,28 +297,29 @@
     }
 
     // Обновленный обработчик выбора события
-    async function selectEvent(eventId) {
-      const cards = document.querySelectorAll('.event-card');
+    function selectEvent(eventId) {
       const loading = document.getElementById('loading');
-      
-      try {
-        loading.style.display = 'flex';
-        cards.forEach(c => c.style.pointerEvents = 'none');
+      loading.style.display = 'flex';
 
-        await new Promise((resolve, reject) => {
+      google.script.run
+        .withSuccessHandler(data => {
+          // Сохраняем данные в свойства скрипта
           google.script.run
-            .withSuccessHandler(resolve)
-            .withFailureHandler(reject)
-            .selectEvent(eventId);
-        });
-
-        google.script.host.close();
-      } catch (error) {
-        alert('Ошибка выбора: ' + error.message);
-      } finally {
-        loading.style.display = 'none';
-        cards.forEach(c => c.style.pointerEvents = 'auto');
-      }
+            .withSuccessHandler(() => {
+              // Закрываем окно выбора
+              google.script.host.close();
+              // Обновляем основное окно
+              google.script.host
+                .getContainer()
+                .postMessage({ type: 'RELOAD_FORM' });
+            })
+            .saveSelectedEventData(data);
+        })
+        .withFailureHandler(error => {
+          loading.style.display = 'none';
+          alert('Ошибка: ' + error.message);
+        })
+        .selectEvent(eventId);
     }
 
     // Инициализация дат

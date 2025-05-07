@@ -1,33 +1,33 @@
 // ==== Google meet ====
 
-function getMeetingAttendees(meetingId) {
-  try {
-    var sheet = SpreadsheetApp.getActive().getSheetByName('Встречи');
-    if (!sheet) throw new Error('Лист "Встречи" не найден');
+// function getMeetingAttendees(meetingId) {
+//   try {
+//     var sheet = SpreadsheetApp.getActive().getSheetByName('Встречи');
+//     if (!sheet) throw new Error('Лист "Встречи" не найден');
     
-    var data = sheet.getDataRange().getValues();
-    if (data.length < 2) return []; // Если нет данных кроме заголовков
+//     var data = sheet.getDataRange().getValues();
+//     if (data.length < 2) return []; // Если нет данных кроме заголовков
     
-    var headers = data[0];
-    var idCol = headers.indexOf('ID встречи');
-    var attendeeIdsCol = headers.indexOf('ID участников');
+//     var headers = data[0];
+//     var idCol = headers.indexOf('ID встречи');
+//     var attendeeIdsCol = headers.indexOf('ID участников');
     
-    if (idCol === -1 || attendeeIdsCol === -1) {
-      throw new Error('Не найдены необходимые колонки');
-    }
+//     if (idCol === -1 || attendeeIdsCol === -1) {
+//       throw new Error('Не найдены необходимые колонки');
+//     }
     
-    for (var i = 1; i < data.length; i++) {
-      if (data[i][idCol] === meetingId) {
-        var attendeeIds = data[i][attendeeIdsCol];
-        return attendeeIds ? attendeeIds.toString().split(',').map(id => id.trim()).filter(id => id) : [];
-      }
-    }
-    return [];
-  } catch (e) {
-    console.error('Ошибка в getMeetingAttendees: ', e);
-    return [];
-  }
-}
+//     for (var i = 1; i < data.length; i++) {
+//       if (data[i][idCol] === meetingId) {
+//         var attendeeIds = data[i][attendeeIdsCol];
+//         return attendeeIds ? attendeeIds.toString().split(',').map(id => id.trim()).filter(id => id) : [];
+//       }
+//     }
+//     return [];
+//   } catch (e) {
+//     console.error('Ошибка в getMeetingAttendees: ', e);
+//     return [];
+//   }
+// }
 
 function showCalendarEventsModal() {
   try {
@@ -86,28 +86,44 @@ function getUpcomingMeetings(startDate, endDate) {
 }
 
 function selectEvent(eventId) {
-  const data = getMeetingDataById(eventId);
-  populateForm(data); // Ваша существующая функция заполнения
-  return "Данные загружены";
+  try {
+    const event = getEventById(eventId); // Используем существующую функцию поиска
+    const employees = getEmployees();
+    const emailMap = new Map(employees.map(e => [e.email, e]));
+    
+    // Формируем данные для формы
+    const data = {
+      title: event.getTitle(),
+      time: event.getStartTime().toISOString(),
+      description: event.getDescription() || '',
+      attendees: event.getGuestList()
+        .filter(g => g.getGuestStatus() !== CalendarApp.GuestStatus.NO)
+        .map(g => g.getEmail()),
+      attachments: [] // В календаре нет вложений, оставляем пустым
+    };
+
+    return data;
+    
+  } catch(e) {
+    console.error('Ошибка выбора события:', e);
+    throw new Error('Не удалось загрузить данные встречи');
+  }
 }
 
-function populateForm(data) {
-  // Основные поля
-  document.getElementById('topic').value = data.title;
-  document.getElementById('meetingDateTime').value = formatDateTime(data.time);
-  document.getElementById('description').value = data.description;
-
-  // Участники
-  window.selectedEmails = new Set(data.attendees);
-  updateSelectedOptions();
-
-  // Вложения
-  const attachmentsContainer = document.getElementById('attachments');
-  attachmentsContainer.innerHTML = data.attachments.map(a => `
-    <div class="attachment">
-      <a href="${a.url}" target="_blank">${a.name}</a>
-    </div>
-  `).join('');
+// Вспомогательная функция
+function getEventById(eventId) {
+  const calendar = CalendarApp.getDefaultCalendar();
+  const events = calendar.getEvents(
+    new Date(Date.now() - 30*24*60*60*1000),
+    new Date(Date.now() + 30*24*60*60*1000)
+  );
+  
+  const foundEvent = events.find(e => 
+    e.getId().split('@')[0] === eventId
+  );
+  
+  if (!foundEvent) throw new Error('Событие не найдено');
+  return foundEvent;
 }
 
 function formatDateTime(date) {
@@ -117,4 +133,18 @@ function formatDateTime(date) {
     .replace('T', ' ');
 }
 
+function saveSelectedEventData(data) {
+  PropertiesService.getScriptProperties()
+    .setProperty('SELECTED_EVENT', JSON.stringify(data));
+}
 
+function getSelectedEventData() {
+  const data = PropertiesService.getScriptProperties()
+    .getProperty('SELECTED_EVENT');
+  return data ? JSON.parse(data) : null;
+}
+
+function cleanSelectedEventData() {
+  PropertiesService.getScriptProperties()
+    .deleteProperty('SELECTED_EVENT');
+}

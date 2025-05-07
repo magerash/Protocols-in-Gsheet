@@ -410,7 +410,6 @@
         <label class="input-label">    </label>
       </div>
     </div>
-
     
     <div class="input-container">
       <div class="input-container">
@@ -422,7 +421,6 @@
       </div>
     </div>
 
-
     <div class="input-container">
       <div class="input-container">
         <label class="input-label">__________________________________________________________________________________________</label>
@@ -433,11 +431,21 @@
       </div>
     </div>
 
-
   </div>
 
   <script>
     document.addEventListener('DOMContentLoaded', function() {
+      // Проверяем сохраненные данные при загрузке
+      const savedData = google.script.run
+        .withSuccessHandler(data => {
+          if (data) {
+            populateForm(data);
+            // Очищаем сохраненные данные
+            google.script.run.cleanSelectedEventData();
+          }
+        })
+        .getSelectedEventData();
+      
       // Загружаем данные асинхронно
       Promise.all([
         loadMeetingNumber(),
@@ -735,6 +743,35 @@
         });
       }
 
+      function populateForm(data) {
+        // Основные поля
+        document.getElementById('topic').value = data.title || '';
+        
+        // Форматирование даты
+        const dateInput = document.getElementById('meetingDateTime');
+        if (data.time) {
+          const date = new Date(data.time);
+          const offset = date.getTimezoneOffset() * 60000;
+          dateInput.value = new Date(date - offset).toISOString().slice(0, 16);
+        }
+
+        // Участники
+        window.selectedEmails = new Set(data.attendees || []);
+        updateSelectedOptions();
+
+        // Описание (если есть соответствующее поле)
+        const descriptionField = document.getElementById('description');
+        if (descriptionField) {
+          descriptionField.value = data.description || '';
+        }
+
+        // Вложения (оставляем пустыми, т.к. в календаре нет вложений)
+        const attachmentsContainer = document.getElementById('attachments');
+        if (attachmentsContainer) {
+          attachmentsContainer.innerHTML = '';
+        }
+      }
+
       // ====== ИНИЦИАЛАЙЗЕРЫ ========
       // Dropdown
       document.getElementById('attendeesDropdown').addEventListener('click', function() {
@@ -824,6 +861,7 @@
                       .createMeeting(meetingData);
         });
       }
+
       // ====== Google Meet ========
       document.getElementById('importFromCalendar').addEventListener('click', () => {
         google.script.run
@@ -835,6 +873,14 @@
           .withFailureHandler(error => console.error('Ошибка:', error))
           .showCalendarEventsModal();
       });
+
+      // Добавляем обработчик для сообщений
+      window.addEventListener('message', event => {
+        if (event.data.type === 'RELOAD_FORM') {
+          window.location.reload();
+        }
+      });
+
     });
     
   </script>

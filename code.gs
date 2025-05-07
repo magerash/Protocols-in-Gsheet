@@ -6,16 +6,6 @@ function GENERATE_UUID() {
 }
 
 // ==== ОЧИСТКА КЭША ====
-function onOpen() {
-  const ui = SpreadsheetApp.getUi();
-  ui.createMenu('Протоколы')
-    .addItem('Создать протокол встречи', 'showMeetingDialog')
-    .addItem('Окно записей', 'showRecordDialog')
-    .addSeparator()
-    .addItem('Обновить кэш сотрудников', 'clearEmployeeCache') // Новая кнопка
-    .addToUi();
-}
-
 function onEdit(e) {
   const sheet = e.source.getActiveSheet();
   if (sheet.getName() === 'Сотрудники') {
@@ -35,20 +25,7 @@ function clearEmployeeCache() {
 }
 
 // ==== 
-function showMeetingDialog() {
-  var html = HtmlService.createHtmlOutputFromFile('MeetingForm')
-    .setWidth(600)
-    .setHeight(650);
-  SpreadsheetApp.getUi().showModalDialog(html, 'Новая встреча');
-}
 
-function showRecordDialog(meetingId, meetingNumber) {
-  var html = HtmlService.createHtmlOutputFromFile('RecordForm')
-    .setWidth(800)
-    .setHeight(650);
-  SpreadsheetApp.getUi().showModalDialog(html, 'Протокол №' + (meetingNumber || ''));
-  PropertiesService.getScriptProperties().setProperty('currentMeetingId', meetingId);
-}
 
 function getNextMeetingNumber() {
   var sheet = SpreadsheetApp.getActive().getSheetByName('Встречи');
@@ -246,99 +223,5 @@ function createRecords(recordsData) {
     sheet.getRange(sheet.getLastRow()+1, 1, rows.length, rows[0].length).setValues(rows);
   }
   return `Сохранено ${rows.length} записей`;
-}
-
-// ==== Google meet ====
-
-function getMeetingAttendees(meetingId) {
-  try {
-    var sheet = SpreadsheetApp.getActive().getSheetByName('Встречи');
-    if (!sheet) throw new Error('Лист "Встречи" не найден');
-    
-    var data = sheet.getDataRange().getValues();
-    if (data.length < 2) return []; // Если нет данных кроме заголовков
-    
-    var headers = data[0];
-    var idCol = headers.indexOf('ID встречи');
-    var attendeeIdsCol = headers.indexOf('ID участников');
-    
-    if (idCol === -1 || attendeeIdsCol === -1) {
-      throw new Error('Не найдены необходимые колонки');
-    }
-    
-    for (var i = 1; i < data.length; i++) {
-      if (data[i][idCol] === meetingId) {
-        var attendeeIds = data[i][attendeeIdsCol];
-        return attendeeIds ? attendeeIds.toString().split(',').map(id => id.trim()).filter(id => id) : [];
-      }
-    }
-    return [];
-  } catch (e) {
-    console.error('Ошибка в getMeetingAttendees: ', e);
-    return [];
-  }
-}
-
-function showCalendarEventsModal() {
-  try {
-    const html = HtmlService.createHtmlOutputFromFile('CalendarEventsModal')
-      .setWidth(500)
-      .setHeight(400);
-    SpreadsheetApp.getUi().showModalDialog(html, 'Выбор события из календаря');
-  } catch(e) {
-    console.error('Ошибка открытия окна:', e);
-    throw new Error('Не удалось открыть окно календаря');
-  }
-}
-
-function getUpcomingMeetings(startDate, endDate) {
-  try {
-    const calendar = CalendarApp.getDefaultCalendar();
-    const start = startDate ? new Date(startDate) : new Date(Date.now() - 3*86400000);
-    const end = endDate ? new Date(endDate) : new Date(Date.now() + 3*86400000);
-    
-    return calendar.getEvents(start, end).map(e => ({
-      id: e.getId().split('@')[0], // Фикс для короткого ID
-      title: e.getTitle() || 'Без названия',
-      time: e.getStartTime() ? e.getStartTime().toISOString() : 'Нет даты',
-      meetUrl: e.getLocation()
-    }));
-    
-  } catch(e) {
-    console.error('Calendar API Error:', e);
-    throw new Error('Ошибка загрузки событий календаря');
-  }
-}
-
-function selectEvent(eventId) {
-  const data = getMeetingDataById(eventId);
-  populateForm(data); // Ваша существующая функция заполнения
-  return "Данные загружены";
-}
-
-function populateForm(data) {
-  // Основные поля
-  document.getElementById('topic').value = data.title;
-  document.getElementById('meetingDateTime').value = formatDateTime(data.time);
-  document.getElementById('description').value = data.description;
-
-  // Участники
-  window.selectedEmails = new Set(data.attendees);
-  updateSelectedOptions();
-
-  // Вложения
-  const attachmentsContainer = document.getElementById('attachments');
-  attachmentsContainer.innerHTML = data.attachments.map(a => `
-    <div class="attachment">
-      <a href="${a.url}" target="_blank">${a.name}</a>
-    </div>
-  `).join('');
-}
-
-function formatDateTime(date) {
-  return new Date(date)
-    .toISOString()
-    .slice(0, 16)
-    .replace('T', ' ');
 }
 

@@ -1,3 +1,4 @@
+<!-- calendarEventsModal -->
 <!DOCTYPE html>
 <html>
 <head>
@@ -296,29 +297,24 @@
       `).join('');
     }
 
-    // Обновленный обработчик выбора события
-    async function selectEvent(eventId) {
-      const cards = document.querySelectorAll('.event-card');
+    // Замените функцию selectEvent
+    function selectEvent(eventId) {
       const loading = document.getElementById('loading');
-      
-      try {
-        loading.style.display = 'flex';
-        cards.forEach(c => c.style.pointerEvents = 'none');
+      loading.style.display = 'flex';
 
-        await new Promise((resolve, reject) => {
+      google.script.run
+        .withSuccessHandler(data => {
           google.script.run
-            .withSuccessHandler(resolve)
-            .withFailureHandler(reject)
-            .selectEvent(eventId);
-        });
-
-        google.script.host.close();
-      } catch (error) {
-        alert('Ошибка выбора: ' + error.message);
-      } finally {
-        loading.style.display = 'none';
-        cards.forEach(c => c.style.pointerEvents = 'auto');
-      }
+            .withSuccessHandler(() => {
+              google.script.host.close();
+              // Обновляем основную форму
+              google.script.run
+                .withSuccessHandler(() => window.top.location.reload())
+                .showMeetingDialog();
+            })
+            .saveSelectedEventData(data);
+        })
+        .selectEvent(eventId);
     }
 
     // Инициализация дат

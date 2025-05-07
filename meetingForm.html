@@ -1,3 +1,5 @@
+<!-- meetingForm -->
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -340,7 +342,15 @@
       gap: 8px;
       justify-content: flex-end;
     }
-
+    .modal-backdrop {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+    }
   </style>
 </head>
 <body>
@@ -410,7 +420,6 @@
         <label class="input-label">    </label>
       </div>
     </div>
-
     
     <div class="input-container">
       <div class="input-container">
@@ -422,7 +431,6 @@
       </div>
     </div>
 
-
     <div class="input-container">
       <div class="input-container">
         <label class="input-label">__________________________________________________________________________________________</label>
@@ -433,39 +441,75 @@
       </div>
     </div>
 
-
   </div>
 
   <script>
     document.addEventListener('DOMContentLoaded', function() {
-      // Загружаем данные асинхронно
       Promise.all([
-        loadMeetingNumber(),
-        loadEmployees()
+          loadMeetingNumber(),
+          loadEmployees()
       ]).then(function() {
-        // Скрываем индикатор и показываем форму
-        document.getElementById('loadingContainer').style.display = 'none';
-        document.getElementById('formContainer').style.display = 'block';
+          // Скрываем индикатор и показываем форму
+          document.getElementById('loadingContainer').style.display = 'none';
+          document.getElementById('formContainer').style.display = 'block';
 
-        // 1. Получаем элемент
-        const datetimeInput = document.getElementById('meetingDateTime');
-        
-        // 2. Устанавливаем текущие дату и время по умолчанию
-        if(datetimeInput) {
-          const now = new Date();
-          
-          // Корректируем время для формата datetime-local
-          const timezoneOffset = now.getTimezoneOffset() * 60000;
-          const localDateTime = new Date(now - timezoneOffset);
-          
-          datetimeInput.value = localDateTime.toISOString().slice(0, 16);
-        }
-      })
-      .catch(function(error) {
-        console.error('Ошибка загрузки:', error);
-        document.getElementById('loadingContainer').innerHTML = 
-          '<div style="color: #d93025;">Ошибка загрузки данных. Пожалуйста, попробуйте еще раз.</div>';
+          // Инициализация компонентов
+          initDateTimePicker();
+          setupDropdownBehavior();
+          loadSelectedEventData();
+
+          // Установка даты по умолчанию
+          const datetimeInput = document.getElementById('meetingDateTime');
+          if(datetimeInput) {
+              const now = new Date();
+              const timezoneOffset = now.getTimezoneOffset() * 60000;
+              datetimeInput.value = new Date(now - timezoneOffset).toISOString().slice(0,16);
+          }
+      }).catch(function(error) {
+          console.error('Ошибка загрузки:', error);
+          document.getElementById('loadingContainer').innerHTML = 
+              '<div style="color: #d93025;">Ошибка загрузки данных</div>';
       });
+      
+      // Загружаем данные асинхронно
+      // Promise.all([
+      //   loadMeetingNumber(),
+      //   loadEmployees()
+      // ]).then(function() {
+      //   // Скрываем индикатор и показываем форму
+      //   // document.getElementById('loadingContainer').style.display = 'none';
+      //   // document.getElementById('formContainer').style.display = 'block';
+
+      //   // Проверка сохраненных данных
+      //   google.script.run
+      //     .withSuccessHandler(data => {
+      //       if (data) {
+      //         populateForm(data);
+      //         google.script.run.clearSelectedEventData();
+      //       }
+      //     })
+      //     .getSelectedEventData();
+
+      //   // 1. Получаем элемент
+      //   const datetimeInput = document.getElementById('meetingDateTime');
+        
+      //   // 2. Устанавливаем текущие дату и время по умолчанию
+      //   if(datetimeInput) {
+      //     const now = new Date();
+          
+      //     // Корректируем время для формата datetime-local
+      //     const timezoneOffset = now.getTimezoneOffset() * 60000;
+      //     const localDateTime = new Date(now - timezoneOffset);
+          
+      //     datetimeInput.value = localDateTime.toISOString().slice(0, 16);
+      //   }
+      // })
+
+      // .catch(function(error) {
+      //   console.error('Ошибка загрузки:', error);
+      //   document.getElementById('loadingContainer').innerHTML = 
+      //     '<div style="color: #d93025;">Ошибка загрузки данных. Пожалуйста, попробуйте еще раз.</div>';
+      // });
 
       // Инициализация кнопки после полной загрузки
       setTimeout(() => {
@@ -477,7 +521,35 @@
         }
       }, 100);
 
-      
+      // Добавьте функцию для загрузки данных
+      function loadSelectedEventData() {
+        google.script.run
+          .withSuccessHandler(data => {
+            if (data) {
+              populateForm(data);
+              google.script.run.clearSelectedEventData();
+            }
+          })
+          .getSelectedEventData();
+      }
+
+      function initDateTimePicker() {
+        const datetimeInput = document.getElementById('meetingDateTime');
+        if (!datetimeInput) return;
+
+        // Установка текущей даты и времени
+        const now = new Date();
+        const timezoneOffset = now.getTimezoneOffset() * 60000;
+        const localDateTime = new Date(now - timezoneOffset);
+        
+        datetimeInput.value = localDateTime.toISOString().slice(0, 16);
+        
+        // Дополнительные настройки можно добавить здесь
+        // Например, минимальную/максимальную дату:
+        // datetimeInput.min = '2024-01-01T00:00';
+        // datetimeInput.max = '2025-12-31T23:59';
+      }
+
       function loadMeetingNumber() {
         return new Promise(function(resolve) {
           google.script.run.withSuccessHandler(function(number) {
@@ -510,6 +582,43 @@
         });
       }
       
+      // Обновление списка выбранных участников
+      function updateSelectedOptions() {
+        const selectedOptionsDiv = document.getElementById('selectedOptions');
+        const hiddenInput = document.getElementById('attendees');
+        
+        selectedOptionsDiv.innerHTML = '';
+        const selectedData = [];
+        
+        Array.from(window.selectedEmails || []).forEach(email => {
+          const employee = window.allEmployees.find(e => e.email === email);
+          if (employee) {
+            const firstNameInitial = employee.firstName ? employee.firstName[0] + '.' : '';
+            const formattedName = `${firstNameInitial} ${employee.lastName}`;
+            
+            const tag = document.createElement('div');
+            tag.className = 'selected-tag';
+            tag.innerHTML = `
+              ${formattedName}
+              <span class="remove-tag" data-email="${email}">×</span>
+            `;
+            selectedOptionsDiv.appendChild(tag);
+            selectedData.push(email);
+          }
+        });
+        
+        hiddenInput.value = selectedData.join(',');
+        
+        // Обработчики для удаления
+        document.querySelectorAll('.remove-tag').forEach(btn => {
+          btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            window.selectedEmails.delete(this.dataset.email);
+            updateSelectedOptions();
+          });
+        });
+      }
+
       function loadEmployees() {
         return new Promise(function(resolve, reject) {
           google.script.run
@@ -569,6 +678,28 @@
                     optionsContainer.appendChild(option);
                   });
                 }
+
+                function selectEvent(eventId) {
+                  // Показать индикатор загрузки
+                  document.getElementById('loading').style.display = 'flex';
+
+                  google.script.run
+                    .withSuccessHandler(function(data) {
+                      // Сохраняем данные в Script Properties
+                      google.script.run
+                        .withSuccessHandler(function() {
+                          // Закрываем модальное окно
+                          google.script.host.close();
+                        })
+                        .saveSelectedEventData(data);
+                    })
+                    .withFailureHandler(function(error) {
+                      console.error('Ошибка:', error);
+                      document.getElementById('loading').style.display = 'none';
+                    })
+                    .selectEvent(eventId);
+                }
+
                 
                 // Инициализация поиска
                 searchInput.addEventListener('input', function() {
@@ -646,6 +777,14 @@
                 
                 // Обновление выбранных вариантов
                 function updateSelectedOptions() {
+                  if (!allEmployees || allEmployees.length === 0) {
+                    console.error('Список сотрудников не загружен');
+                    return;
+                  }
+
+                  const selectedOptionsDiv = document.getElementById('selectedOptions');
+                  const hiddenInput = document.getElementById('attendees');                  
+
                   selectedOptions.innerHTML = '';
                   const selectedData = [];
                   
@@ -733,6 +872,28 @@
           btn.disabled = false;
           btn.textContent = 'Сохранить встречу';
         });
+      }
+
+      function populateForm(data) {
+        // Основные поля
+        document.getElementById('topic').value = data.title || '';
+        
+        // Форматирование даты
+        if (data.startTime) { // Используем startTime вместо time
+          const date = new Date(data.startTime);
+          const offset = date.getTimezoneOffset() * 60000;
+          document.getElementById('meetingDateTime').value = 
+            new Date(date - offset).toISOString().slice(0, 16);
+        }
+
+        // Участники
+        window.selectedEmails = new Set(data.attendees || []);
+        updateSelectedOptions(); // Явный вызов обновления интерфейса
+
+        // Место (если есть соответствующее поле)
+        if (data.location && document.getElementById('location')) {
+          document.getElementById('location').value = data.location;
+        }
       }
 
       // ====== ИНИЦИАЛАЙЗЕРЫ ========
@@ -824,6 +985,7 @@
                       .createMeeting(meetingData);
         });
       }
+
       // ====== Google Meet ========
       document.getElementById('importFromCalendar').addEventListener('click', () => {
         google.script.run
@@ -835,6 +997,16 @@
           .withFailureHandler(error => console.error('Ошибка:', error))
           .showCalendarEventsModal();
       });
+
+      // Добавляем обработчик для сообщений
+      window.addEventListener('message', event => {
+        if (event.data.type === 'RELOAD_FORM') {
+          window.location.reload();
+          google.script.run.showMeetingDialog();
+         
+        }
+      });
+
     });
     
   </script>

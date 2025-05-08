@@ -1,0 +1,104 @@
+<!-- meetingTypeSelector -->
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    body {
+      font-family: 'Roboto', Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      background-color: #f8f9fa;
+    }
+    
+    .header {
+      font-size: 24px;
+      font-weight: 500;
+      margin-bottom: 30px;
+      color: #202124;
+      text-align: center;
+    }
+    
+    .options-container {
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    
+    .option-card {
+      width: 200px;
+      height: 200px;
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      cursor: pointer;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      transition: all 0.3s ease;
+      border: 1px solid #e0e0e0;
+    }
+    
+    .option-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+      border-color: #1a73e8;
+    }
+    
+    .option-icon {
+      font-size: 48px;
+      margin-bottom: 15px;
+      color: #1a73e8;
+    }
+    
+    .option-title {
+      font-size: 18px;
+      font-weight: 500;
+      margin-bottom: 10px;
+      color: #202124;
+    }
+    
+    .option-description {
+      font-size: 14px;
+      color: #5f6368;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">Выберите способ создания встречи</div>
+  
+  <div class="options-container">
+    <div class="option-card" onclick="selectOption('manual')">
+      <div class="option-icon">✏️</div>
+      <div class="option-title">Создать вручную</div>
+      <div class="option-description">Заполните все данные о встрече самостоятельно</div>
+    </div>
+    
+    <div class="option-card" onclick="selectOption('calendar')">
+      <div class="option-icon">📅</div>
+      <div class="option-title">Из календаря</div>
+      <div class="option-description">Выберите существующее событие из Google Calendar</div>
+    </div>
+  </div>
+
+  <script>
+    function selectOption(type) {
+      if (type === 'manual') {
+        google.script.run.showMeetingDialog();
+      } else if (type === 'calendar') {
+        google.script.run.showCalendarEventsModal();
+      }
+      google.script.host.close();
+    }
+  </script>
+</body>
+</html>

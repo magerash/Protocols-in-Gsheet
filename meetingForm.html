@@ -412,7 +412,7 @@
       <button id="saveMeeting" class="button">Сохранить встречу</button>
     </div>
 
-    <div class="input-container">
+    <!-- <div class="input-container">
       <div class="input-container">
         <label class="input-label">    </label>
         <label class="input-label">    </label>
@@ -437,9 +437,9 @@
         <div class="import-section">
           <button id="importFromCalendar" class="button button-dev" >Выбрать из календаря</button>
           <!-- <button id="importByLink" class="button button-dev" >Загрузить по ссылке</button> -->
-        </div>
+        <!-- </div>
       </div>
-    </div>
+    </div> --> 
 
   </div>
 
@@ -955,7 +955,7 @@
         });
       }
 
-      // ====== Google Meet ========
+      // ====== Google Meet =========
       document.getElementById('importFromCalendar').addEventListener('click', function() {
         new Promise(function(resolve) {
           google.script.run

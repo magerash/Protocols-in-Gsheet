@@ -153,9 +153,14 @@ function createMeeting(meetingData) {
   const meetingId = Utilities.getUuid();
   const employees = getEmployees();
 
+  // Создаем карту email -> имя сотрудника
+  const emailMap = new Map();
+  employees.forEach(emp => emailMap.set(emp.email.toLowerCase(), `${emp.firstName} ${emp.lastName}`));
+
   // Подготовка данных
   let formattedNames = [];
   let attendeeIds = [];
+  let invalidEmails = [];
   
   try {
     // 1. Валидация даты
@@ -166,19 +171,35 @@ function createMeeting(meetingData) {
 
     // 2. Обработка участников
     meetingData.attendees.forEach(email => {
-      const employee = employees.find(e => e.email === email);
-      if (!employee) {
-        throw new Error(`Сотрудник с email ${email} не найден`);
+      const lowerEmail = email.toLowerCase();
+      if (emailMap.has(lowerEmail)) {
+        const employee = employees.find(e => e.email.toLowerCase() === lowerEmail);
+        const firstNameInitial = employee.firstName ? employee.firstName[0].toUpperCase() + '.' : '';
+        formattedNames.push(`${firstNameInitial} ${employee.lastName}`);
+        attendeeIds.push(employee.id);
+      } else {
+        invalidEmails.push(email); // Сохраняем некорректные email
       }
-
-      // 3. Форматирование имени
-      const firstNameChar = employee.firstName 
-        ? employee.firstName[0].toUpperCase() + "." 
-        : "";
-      formattedNames.push(`${firstNameChar} ${employee.lastName}`);
-      
-      attendeeIds.push(employee.id);
     });
+
+    // Проверяем наличие участников
+    if (attendeeIds.length === 0) {
+      throw new Error("Нет ни одного корректного участника");
+    }    
+    // meetingData.attendees.forEach(email => {
+    //   const employee = employees.find(e => e.email === email);
+    //   if (!employee) {
+    //     throw new Error(`Сотрудник с email ${email} не найден`);
+    //   }
+
+    //   // 3. Форматирование имени
+    //   const firstNameChar = employee.firstName 
+    //     ? employee.firstName[0].toUpperCase() + "." 
+    //     : "";
+    //   formattedNames.push(`${firstNameChar} ${employee.lastName}`);
+      
+    //   attendeeIds.push(employee.id);
+    // });
 
     // 4. Запись в таблицу
     sheet.appendRow([
@@ -192,12 +213,18 @@ function createMeeting(meetingData) {
 
     return { 
       id: meetingId, 
-      number: meetingData.meetingNumber 
+      number: meetingData.meetingNumber,
+      success: true,
+      invalidEmails: invalidEmails,
+      message: invalidEmails.length > 0 
+        ? `Встреча сохранена, но не найдены: ${invalidEmails.join(', ')}`
+        : 'Встреча успешно сохранена'      
     };
 
   } catch (e) {
     console.error("Ошибка создания встречи:", e);
     throw new Error("Не удалось сохранить встречу. " + e.message);
+    
   }
 }
 

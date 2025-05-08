@@ -60,12 +60,13 @@ function getUpcomingMeetings(startDate, endDate) {
 function selectEvent(eventId) {
   try {
     const event = getEventById(eventId); // Используйте существующую функцию поиска
+    const creatorEmail = event.getCreators()[0];
     const data = {
       title: event.getTitle(),
       startTime: event.getStartTime().toISOString(),
       endTime: event.getEndTime().toISOString(),
       location: event.getLocation(),
-      attendees: event.getGuestList().map(g => g.getEmail())
+      attendees: [creatorEmail, ...event.getGuestList().map(g => g.getEmail())]
     };
     return data;
   } catch(e) {
@@ -97,8 +98,14 @@ function formatDateTime(date) {
 }
 
 function saveSelectedEventData(data) {
-  PropertiesService.getScriptProperties()
-    .setProperty('SELECTED_EVENT', JSON.stringify(data));
+  try {
+    PropertiesService.getScriptProperties()
+      .setProperty('SELECTED_EVENT', JSON.stringify(data));
+    return true; // Явно возвращаем результат
+  } catch (e) {
+    console.error('Save error:', e);
+    return false;
+  }
 }
 
 function getSelectedEventData() {

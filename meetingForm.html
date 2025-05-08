@@ -799,7 +799,7 @@
         });
       }    
 
-      function showAlert(message) {
+      function showAlert(message, autoClose = true) {
         const alert = document.getElementById('customAlert');
         const messageEl = document.getElementById('customAlertMessage');
         const okButton = document.getElementById('customAlertOK');
@@ -811,9 +811,19 @@
         
         okButton.onclick = function() {
           alert.style.display = 'none';
+          if (autoClose) {
+            google.script.host.close();
+          }
         };
+        
+        if (autoClose) {
+          setTimeout(() => {
+            alert.style.display = 'none';
+            google.script.host.close();
+          }, 3000);
+        }
       }
-      
+
       function resetMeetingForm() {
         // Сброс выбранных участников
         window.selectedEmails = new Set();
@@ -923,7 +933,7 @@
             google.script.run
               .withSuccessHandler(function(response) {
                 if (response && response.invalidEmails && response.invalidEmails.length > 0) {
-                  showAlert(`Встреча сохранена, но не найдены: ${response.invalidEmails.join(', ')}`);
+                  showAlert(`Встреча сохранена, но не найдены: ${response.invalidEmails.join(', ')}`, false); // false = не закрывать автоматически
                 }
                 setTimeout(function() {
                   google.script.host.close();

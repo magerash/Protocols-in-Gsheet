@@ -297,24 +297,26 @@
       `).join('');
     }
 
-    // Замените функцию selectEvent
+    // Выбор встречи
     function selectEvent(eventId) {
       const loading = document.getElementById('loading');
       loading.style.display = 'flex';
-
-      google.script.run
-        .withSuccessHandler(data => {
-          google.script.run
-            .withSuccessHandler(() => {
-              google.script.host.close();
-              // Обновляем основную форму
-              google.script.run
-                .withSuccessHandler(() => window.top.location.reload())
-                .showMeetingDialog();
-            })
-            .saveSelectedEventData(data);
-        })
-        .selectEvent(eventId);
+      // Возвращаем Promise для асинхронной обработки
+      return new Promise((resolve) => {
+        google.script.run
+          .withSuccessHandler(data => {
+            google.script.run
+              .withSuccessHandler(() => {
+                google.script.host.close();
+                // Обновляем основную форму
+                google.script.run
+                  .withSuccessHandler(() => window.top.location.reload())
+                  .showMeetingDialog();
+              })
+              .saveSelectedEventData(data);
+          })
+          .selectEvent(eventId);
+      });
     }
 
     // Инициализация дат

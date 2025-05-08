@@ -22,3 +22,4 @@ function showRecordDialog(meetingId, meetingNumber) {
   SpreadsheetApp.getUi().showModalDialog(html, 'Протокол №' + (meetingNumber || ''));
   PropertiesService.getScriptProperties().setProperty('currentMeetingId', meetingId);
 }
+

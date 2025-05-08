@@ -98,8 +98,14 @@ function formatDateTime(date) {
 }
 
 function saveSelectedEventData(data) {
-  PropertiesService.getScriptProperties()
-    .setProperty('SELECTED_EVENT', JSON.stringify(data));
+  try {
+    PropertiesService.getScriptProperties()
+      .setProperty('SELECTED_EVENT', JSON.stringify(data));
+    return true; // Явно возвращаем результат
+  } catch (e) {
+    console.error('Save error:', e);
+    return false;
+  }
 }
 
 function getSelectedEventData() {

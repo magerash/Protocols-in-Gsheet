@@ -1,18 +1,6 @@
 // ==== Google meet ====
 // calendar.gs
 
-function showCalendarEventsModal() {
-  try {
-    const html = HtmlService.createHtmlOutputFromFile('calendarEventsModal')
-      .setWidth(500)
-      .setHeight(600);
-    SpreadsheetApp.getUi().showModalDialog(html, 'Выбор события из календаря');
-  } catch(e) {
-    console.error('Ошибка открытия окна:', e);
-    throw new Error('Не удалось открыть окно календаря');
-  }
-}
-
 function getUpcomingMeetings(startDate, endDate) {
   try {
     const employees = getEmployees();

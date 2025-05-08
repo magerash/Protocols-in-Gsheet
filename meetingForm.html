@@ -471,46 +471,6 @@
               '<div style="color: #d93025;">Ошибка загрузки данных</div>';
       });
       
-      // Загружаем данные асинхронно
-      // Promise.all([
-      //   loadMeetingNumber(),
-      //   loadEmployees()
-      // ]).then(function() {
-      //   // Скрываем индикатор и показываем форму
-      //   // document.getElementById('loadingContainer').style.display = 'none';
-      //   // document.getElementById('formContainer').style.display = 'block';
-
-      //   // Проверка сохраненных данных
-      //   google.script.run
-      //     .withSuccessHandler(data => {
-      //       if (data) {
-      //         populateForm(data);
-      //         google.script.run.clearSelectedEventData();
-      //       }
-      //     })
-      //     .getSelectedEventData();
-
-      //   // 1. Получаем элемент
-      //   const datetimeInput = document.getElementById('meetingDateTime');
-        
-      //   // 2. Устанавливаем текущие дату и время по умолчанию
-      //   if(datetimeInput) {
-      //     const now = new Date();
-          
-      //     // Корректируем время для формата datetime-local
-      //     const timezoneOffset = now.getTimezoneOffset() * 60000;
-      //     const localDateTime = new Date(now - timezoneOffset);
-          
-      //     datetimeInput.value = localDateTime.toISOString().slice(0, 16);
-      //   }
-      // })
-
-      // .catch(function(error) {
-      //   console.error('Ошибка загрузки:', error);
-      //   document.getElementById('loadingContainer').innerHTML = 
-      //     '<div style="color: #d93025;">Ошибка загрузки данных. Пожалуйста, попробуйте еще раз.</div>';
-      // });
-
       // Инициализация кнопки после полной загрузки
       setTimeout(() => {
         initializeSaveButton();
@@ -544,10 +504,6 @@
         
         datetimeInput.value = localDateTime.toISOString().slice(0, 16);
         
-        // Дополнительные настройки можно добавить здесь
-        // Например, минимальную/максимальную дату:
-        // datetimeInput.min = '2024-01-01T00:00';
-        // datetimeInput.max = '2025-12-31T23:59';
       }
 
       function loadMeetingNumber() {

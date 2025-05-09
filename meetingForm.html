@@ -799,7 +799,7 @@
         });
       }    
 
-      function showAlert(message, autoClose = true) {
+      function showAlert(message, autoClose = false) {
         const alert = document.getElementById('customAlert');
         const messageEl = document.getElementById('customAlertMessage');
         const okButton = document.getElementById('customAlertOK');
@@ -816,12 +816,12 @@
           }
         };
         
-        if (autoClose) {
-          setTimeout(() => {
-            alert.style.display = 'none';
-            google.script.host.close();
-          }, 3000);
-        }
+        // if (autoClose) {
+        //   setTimeout(() => {
+        //     alert.style.display = 'none';
+        //     google.script.host.close();
+        //   }, 3000);
+        // }
       }
 
       function resetMeetingForm() {
@@ -940,14 +940,14 @@
                 }, 500);
               })
               .withFailureHandler(function(error) {
-                showAlert("Ошибка: " + error.message);
+                showAlert("Ошибка: " + error.message, false);
                 btn.disabled = false;
                 btn.textContent = 'Сохранить встречу';
                 isSaving = false;
               })
               .createMeeting(meetingData);
           } catch (error) {
-            showAlert(error.message);
+            showAlert(error.message, false);
             btn.disabled = false;
             btn.textContent = 'Сохранить встречу';
             isSaving = false;

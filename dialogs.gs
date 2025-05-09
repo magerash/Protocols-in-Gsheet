@@ -1,3 +1,5 @@
+// файл: dialogs.gs
+
 function onOpen() {
   const ui = SpreadsheetApp.getUi();
   ui.createMenu('Протоколы')

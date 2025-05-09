@@ -1,5 +1,4 @@
-// ==== Google meet ====
-// calendar.gs
+//файл: calendar.gs
 
 function getUpcomingMeetings(startDate, endDate) {
   try {

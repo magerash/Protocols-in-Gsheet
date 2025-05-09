@@ -34,7 +34,7 @@ function showRecordDialog(meetingId, meetingNumber) {
   var html = HtmlService.createHtmlOutputFromFile('recordForm')
     .setWidth(800)
     .setHeight(650);
-  SpreadsheetApp.getUi().showModalDialog(html, 'Новая встреча');
+  SpreadsheetApp.getUi().showModalDialog(html, 'Записи встречи');
   PropertiesService.getScriptProperties().setProperty('currentMeetingId', meetingId);
 }
 

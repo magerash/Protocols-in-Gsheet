@@ -1,39 +1,65 @@
-var employeeCache = null;
-const CACHE_EXPIRATION = 5 * 60; // 5 минут
+//файл: code.gs
+
+const DEBUG_MODE = true;
+
+// Пример улучшенного логирования
+function customLog(funcName, message, ...args) {
+  if (DEBUG_MODE) {
+    const logMessage = `[${funcName}] ${message}`;
+    if (args.length > 0) {
+      Logger.log(logMessage, ...args);
+    } else {
+      Logger.log(logMessage);
+    }
+  }
+}
 
 function GENERATE_UUID() {
+  uuid = Utilities.getUuid()
+  Logger.log('[GENERATE_UUID] cгенерированный UUID: ' + uuid);
+  
   return Utilities.getUuid();
 }
 
-// ==== ОЧИСТКА КЭША ====
+var employeeCache = null;
+const CACHE_EXPIRATION = 5 * 60; // 5 минут
+const CACHE_KEY_PREFIX = 'employees_part_';
+const CHUNK_SIZE = 90 * 1024; 
+
 function onEdit(e) {
+  Logger.log('[onEdit] Событие редактирования. Лист: %s', e.source.getActiveSheet().getName());
   const sheet = e.source.getActiveSheet();
   if (sheet.getName() === 'Сотрудники') {
+    Logger.log('[onEdit] Обнаружено редактирование листа Сотрудники');
     clearEmployeeCache();
     SpreadsheetApp.getUi().alert('Кэш сотрудников обновлен!');
   }
 }
 
 function clearEmployeeCache() {
+  Logger.log('[clearEmployeeCache] Очистка кэша сотрудников');
   const cache = CacheService.getScriptCache();
   const allKeys = cache.getAll([]); // Получаем все ключи
   const ourKeys = Object.keys(allKeys).filter(k => k.startsWith(CACHE_KEY_PREFIX));
-  
+  Logger.log('[clearEmployeeCache] Найдено ключей: %s', ourKeys.length);
   if (ourKeys.length > 0) {
     cache.removeAll(ourKeys);
+    Logger.log('[clearEmployeeCache] Кэш успешно очищен');
   }
 }
 
-// ==== 
-
-
 function getNextMeetingNumber() {
+  Logger.log('[getNextMeetingNumber] Получение следующего номера встречи');  
   var sheet = SpreadsheetApp.getActive().getSheetByName('Встречи');
-  return sheet.getLastRow() === 1 ? 1 : sheet.getRange(sheet.getLastRow(), 2).getValue() + 1;
+  const lastRow = sheet.getLastRow();
+  const result = lastRow === 1 ? 1 : sheet.getRange(lastRow, 2).getValue() + 1;
+  Logger.log('[getNextMeetingNumber] Результат: %s', result);
+  return result;
 }
 
 function getColumnIndexes(headers) {
-  return {
+  Logger.log('[getColumnIndexes] Поиск индексов колонок');
+  const indexes = {
     name: headers.findIndex(h => h.trim() === 'Имя'),
     surname: headers.findIndex(h => h.trim() === 'Фамилия'),
     email: headers.findIndex(h => h.trim() === 'Почта'),
@@ -42,22 +68,26 @@ function getColumnIndexes(headers) {
     dept: headers.findIndex(h => h.trim() === 'Подразделение'),
     unit: headers.findIndex(h => h.trim() === 'Отдел')
   };
+  Logger.log('[getColumnIndexes] Результат: %s', JSON.stringify(indexes));
+  return indexes;
 }
 
 function getEmployees() {
+  Logger.log('[getEmployees] Начало загрузки сотрудников');  
   const cache = CacheService.getScriptCache();
-  const CACHE_KEY_PREFIX = 'employees_part_'; // Префикс для ключей
-  const CHUNK_SIZE = 90 * 1024; // Добавьте эту строку
 
-  // Проверяем in-memory кэш
-  if (employeeCache) return employeeCache;
+  if (employeeCache) {
+    Logger.log('[getEmployees] Используем кэш из памяти');
+    return employeeCache;
+  }
 
-  // Получаем ВСЕ ключи из кэша
   const allKeys = cache.getAll([]); // Пустой массив = все ключи
   const ourKeys = Object.keys(allKeys).filter(k => k.startsWith(CACHE_KEY_PREFIX));
+  Logger.log('[getEmployees] Найдено частей в кэше: %s', ourKeys.length);
 
   if (ourKeys.length > 0) {
     // Получаем только нужные части
+    Logger.log('[getEmployees] Восстанавливаем из кэша');
     const cachedParts = cache.getAll(ourKeys);
     employeeCache = [];
     Object.keys(cachedParts)
@@ -68,10 +98,11 @@ function getEmployees() {
       .forEach(key => {
         employeeCache.push(...JSON.parse(cachedParts[key]));
       });
+    Logger.log('[getEmployees] Загружено записей: %s', employeeCache.length);      
     return employeeCache;
   }
 
-  // Загрузка данных из таблицы
+  Logger.log('[getEmployees] Загрузка из таблицы');
   const sheet = SpreadsheetApp.getActive().getSheetByName('Сотрудники');
   const data = sheet.getDataRange().getValues();
   const headers = data[0];
@@ -92,8 +123,9 @@ function getEmployees() {
       displayName: `${firstName} ${lastName}`.trim() // Автоматическая генерация
     };
   }).filter(e => e.email);
+  Logger.log('[getEmployees] Отфильтровано записей: %s', employeeCache.length);
 
-  // Разбиваем на части и сохраняем
+  Logger.log('[getEmployees] Разбиваем на части и сохраняем записи');
   const jsonData = JSON.stringify(employeeCache);
   const chunks = [];
   
@@ -105,6 +137,7 @@ function getEmployees() {
       expiration: CACHE_EXPIRATION
     });
   }
+  Logger.log('[getEmployees] Сохранение в кэш. Частей: %s', chunks.length);
 
   const chunkData = {};
   chunks.forEach((chunk, index) => {
@@ -116,102 +149,112 @@ function getEmployees() {
 }
 
 function getRecordTypes() {
-  return getTableData('Данные', 'Типы записей');
+  Logger.log('[getRecordTypes] Получение типов записей');
+  const result = getTableData('Данные', 'Типы записей');
+  Logger.log('[getRecordTypes] Найдено типов: %s', result.length);
+  return result;
 }
 
 function getImportanceLevels() {
-  return getTableData('Данные', 'Значимость');
+  Logger.log('[getImportanceLevels] Получение уровней значимости');
+  const result = getTableData('Данные', 'Значимость');
+  Logger.log('[getImportanceLevels] Найдено уровней: %s', result.length);
+  return result;
 }
 
 function getPriorityLevels() {
-  return getTableData('Данные', 'Приоритет');
+  Logger.log('[getPriorityLevels] Получение уровней приоритета');
+  const result = getTableData('Данные', 'Приоритет');
+  Logger.log('[getPriorityLevels] Найдено уровней: %s', result.length);
+  return result;
 }
 
 function getTableData(sheetName, columnName) {
-  console.log('Загрузка данных из листа "%s", столбец "%s"', sheetName, columnName);
+  Logger.log('[getTableData] Начало обработки. Лист: "%s", Колонка: "%s"', sheetName, columnName);
+  
   try {
-    var sheet = SpreadsheetApp.getActive().getSheetByName(sheetName);
-    if (!sheet) throw new Error('Лист "' + sheetName + '" не найден');
+    const sheet = SpreadsheetApp.getActive().getSheetByName(sheetName);
+    if (!sheet) {
+      Logger.error('[getTableData] Лист "%s" не найден', sheetName);
+      throw new Error('Лист "' + sheetName + '" не найден');
+    }
     
-    var data = sheet.getDataRange().getValues();
-    var headers = data[0];
-    var columnIndex = headers.findIndex(h => h.trim() === columnName.trim());
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const columnIndex = headers.findIndex(h => h.trim() === columnName.trim());
     
-    if (columnIndex === -1) throw new Error('Столбец "' + columnName + '" не найден');
+    if (columnIndex === -1) {
+      Logger.error('[getTableData] Колонка "%s" не найдена', columnName);
+      throw new Error('Столбец "' + columnName + '" не найден');
+    }
     
-    return data.slice(1)
+    const result = data.slice(1)
       .map(row => row[columnIndex])
       .filter(value => value !== '' && value !== null && value !== undefined);
+    
+    Logger.log('[getTableData] Успешно. Найдено записей: %s', result.length);
+    return result;
+    
   } catch (e) {
-    console.error('Ошибка в getTableData: ', e);
-    throw e; // Перебрасываем ошибку для обработки в вызывающем коде
+    Logger.error('[getTableData] Ошибка: %s', e.toString());
+    throw e;
   }
 }
 
 function createMeeting(meetingData) {
+  Logger.log('[createMeeting] Начало создания встречи. Данные: %s', JSON.stringify(meetingData));
+  
   const sheet = SpreadsheetApp.getActive().getSheetByName('Встречи');
   const meetingId = Utilities.getUuid();
   const employees = getEmployees();
+  Logger.log('[createMeeting] Получено сотрудников: %s', employees.length);
 
-  // Создаем карту email -> имя сотрудника
-  const emailMap = new Map();
-  employees.forEach(emp => emailMap.set(emp.email.toLowerCase(), `${emp.firstName} ${emp.lastName}`));
-
-  // Подготовка данных
   let formattedNames = [];
   let attendeeIds = [];
   let invalidEmails = [];
   
   try {
-    // 1. Валидация даты
+    // Валидация даты
+    Logger.log('[createMeeting] Валидация даты: %s', meetingData.date);
     const meetingDate = new Date(meetingData.date);
     if (isNaN(meetingDate.getTime())) {
       throw new Error("Некорректный формат даты: " + meetingData.date);
     }
 
-    // 2. Обработка участников
-    meetingData.attendees.forEach(email => {
+    // Обработка участников
+    Logger.log('[createMeeting] Обработка %s участников', meetingData.attendees.length);
+    meetingData.attendees.forEach((email, index) => {
       const lowerEmail = email.toLowerCase();
-      if (emailMap.has(lowerEmail)) {
-        const employee = employees.find(e => e.email.toLowerCase() === lowerEmail);
+      const employee = employees.find(e => e.email.toLowerCase() === lowerEmail);
+      
+      if (employee) {
         const firstNameInitial = employee.firstName ? employee.firstName[0].toUpperCase() + '.' : '';
         formattedNames.push(`${firstNameInitial} ${employee.lastName}`);
         attendeeIds.push(employee.id);
+        Logger.log('[createMeeting] Участник %s: %s добавлен', index + 1, email);
       } else {
-        invalidEmails.push(email); // Сохраняем некорректные email
+        invalidEmails.push(email);
+        Logger.log('[createMeeting] Невалидный email: %s', email);
       }
     });
 
-    // Проверяем наличие участников
     if (attendeeIds.length === 0) {
+      Logger.error('[createMeeting] Нет валидных участников');
       throw new Error("Нет ни одного корректного участника");
-    }    
-    // meetingData.attendees.forEach(email => {
-    //   const employee = employees.find(e => e.email === email);
-    //   if (!employee) {
-    //     throw new Error(`Сотрудник с email ${email} не найден`);
-    //   }
+    }
 
-    //   // 3. Форматирование имени
-    //   const firstNameChar = employee.firstName 
-    //     ? employee.firstName[0].toUpperCase() + "." 
-    //     : "";
-    //   formattedNames.push(`${firstNameChar} ${employee.lastName}`);
-      
-    //   attendeeIds.push(employee.id);
-    // });
-
-    // 4. Запись в таблицу
+    // Запись в таблицу
+    Logger.log('[createMeeting] Запись в лист "Встречи"');
     sheet.appendRow([
-      meetingId,                         // A: ID встречи
-      meetingData.meetingNumber,         // B: Номер встречи
-      meetingDate,                      // C: Дата (корректный Date объект)
-      meetingData.topic,                 // D: Тема
-      formattedNames.join(', '),         // E: Имена
-      attendeeIds.join(', ')             // F: ID участников
+      meetingId,
+      meetingData.meetingNumber,
+      meetingDate,
+      meetingData.topic,
+      formattedNames.join(', '),
+      attendeeIds.join(', ')
     ]);
 
-    return { 
+    const result = { 
       id: meetingId, 
       number: meetingData.meetingNumber,
       success: true,
@@ -220,35 +263,93 @@ function createMeeting(meetingData) {
         ? `Встреча сохранена, но не найдены: ${invalidEmails.join(', ')}`
         : 'Встреча успешно сохранена'      
     };
+    
+    Logger.log('[createMeeting] Успешно создано. Результат: %s', JSON.stringify(result));
+    return result;
 
   } catch (e) {
-    console.error("Ошибка создания встречи:", e);
-    throw new Error("Не удалось сохранить встречу. " + e.message);
-    
+    Logger.error("Ошибка создания встречи:", e);
+    throw new Error("Не удалось сохранить встречу. " + e.message);    
   }
 }
 
 function createRecords(recordsData) {
-  var sheet = SpreadsheetApp.getActive().getSheetByName('Записи');
-  var meetingId = PropertiesService.getScriptProperties().getProperty('currentMeetingId');
+  Logger.log('[createRecords] Начало создания записей. Количество: %s', recordsData.length);
   
-  var rows = recordsData.map(function(record) {
-    return [
-      Utilities.getUuid(),
-      meetingId,
-      record.type,
-      record.text,
-      record.dueDate,
-      record.responsible.join(', '),
-      record.importance,
-      record.priority,
-      record.recordNumber
-    ];
-  });
-  
-  if (rows.length > 0) {
-    sheet.getRange(sheet.getLastRow()+1, 1, rows.length, rows[0].length).setValues(rows);
+  try {
+    const sheet = SpreadsheetApp.getActive().getSheetByName('Записи');
+    const meetingId = PropertiesService.getScriptProperties().getProperty('currentMeetingId');
+    Logger.log('[createRecords] ID встречи: %s', meetingId);
+
+    const rows = recordsData.map((record, index) => {
+      Logger.log('[createRecords] Обработка записи %s: %s', index + 1, JSON.stringify(record));
+      return [
+        Utilities.getUuid(),
+        meetingId,
+        record.type,
+        record.text,
+        record.dueDate,
+        record.responsible.join(', '),
+        record.importance,
+        record.priority,
+        record.recordNumber
+      ];
+    });
+
+    if (rows.length > 0) {
+      const range = sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, rows[0].length);
+      Logger.log('[createRecords] Запись диапазона: %s', range.getA1Notation());
+      range.setValues(rows);
+    }
+
+    const result = `Сохранено ${rows.length} записей`;
+    Logger.log('[createRecords] Успешно. %s', result);
+    return result;
+
+  } catch (e) {
+    Logger.error('[createRecords] Ошибка: %s', e.toString());
+    throw e;
   }
-  return `Сохранено ${rows.length} записей`;
 }
 
+function getMeetingAttendees(meetingId) {
+  Logger.log('[getMeetingAttendees] Начало обработки для meetingId: %s', meetingId);
+  
+  try {
+    const sheet = SpreadsheetApp.getActive().getSheetByName('Встречи');
+    const data = sheet.getDataRange().getValues();
+    const header = data[0];
+    
+    const ID_COL = header.indexOf('ID встречи');
+    const ATTENDEES_COL = header.indexOf('ID участников');
+    
+    Logger.log('[getMeetingAttendees] Индексы колонок: ID_COL=%s, ATTENDEES_COL=%s', ID_COL, ATTENDEES_COL);
+    
+    const meeting = data.find(row => row[ID_COL] === 79);
+    // if (!meeting) {
+    //   Logger.log('[getMeetingAttendees] Встреча не найдена');
+    //   return [];
+    // }
+    
+    const attendeeIds = meeting[ATTENDEES_COL].split(', ').map(Number);
+    Logger.log('[getMeetingAttendees] Найдено ID участников: %s', attendeeIds.join(', '));
+    
+    const employees = getEmployees();
+    Logger.log('[getMeetingAttendees] Получено сотрудников: %s', employees.length);
+    
+    const result = employees
+      .filter(e => attendeeIds.includes(Number(e.id)))
+      .map(e => ({
+        email: e.email,
+        name: `${e.firstName} ${e.lastName}`.trim(),
+        id: e.id
+      }));
+    
+    Logger.log('[getMeetingAttendees] Результат: %s записей', result.length);
+    return result;
+    
+  } catch (e) {
+    Logger.log('[getMeetingAttendees] Ошибка: %s', e.toString());
+    throw e;
+  }
+}

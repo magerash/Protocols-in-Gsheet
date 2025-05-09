@@ -250,6 +250,17 @@
         .toLocaleTimeString('ru-RU', {...options, timeZone});
     }
 
+    function formatDate(isoString, timeZone) {
+      if (!isoString) return '';
+      const options = { 
+        day: '2-digit',
+        month: '2-digit', 
+        year: 'numeric'
+      };
+      return new Date(isoString)
+        .toLocaleDateString('ru-RU', {...options, timeZone});
+    }
+
     function formatName(str) {
       // Если строка содержит @, обрезаем домен
       return str.includes('@') 
@@ -263,6 +274,18 @@
         <div class="event-card" onclick="selectEvent('${e.id}')">
           <!-- Заголовок -->
           <div class="event-title">${e.title || 'Встреча без названия'}</div>
+
+          <!-- Дата -->
+          <div class="info-row">
+            <span class="info-label">Дата:</span>
+            <div class="info-value">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                <path d="M8 2v4M16 2v4M3 10h18"/>
+              </svg>
+              <span class="date-text">${formatDate(e.startTime, e.timeZone)}</span>
+            </div>
+          </div>
 
           <!-- Время -->
           <div class="info-row">

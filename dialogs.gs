@@ -17,11 +17,24 @@ function showMeetingDialog() {
   SpreadsheetApp.getUi().showModalDialog(html, 'Новая встреча');
 }
 
+function showMeetingDialogWithData(data) {
+  // Сохраняем данные календаря перед открытием
+  PropertiesService.getScriptProperties()
+    .setProperty('CALENDAR_EVENT_DATA', JSON.stringify(data));
+  
+  const html = HtmlService.createHtmlOutputFromFile('meetingForm')
+    .setWidth(600)
+    .setHeight(650);
+  
+  SpreadsheetApp.getUi().showModalDialog(html, 'Новая встреча');
+  return data.id; // Возвращаем ID созданной встречи
+}
+
 function showRecordDialog(meetingId, meetingNumber) {
   var html = HtmlService.createHtmlOutputFromFile('recordForm')
     .setWidth(800)
     .setHeight(650);
-  SpreadsheetApp.getUi().showModalDialog(html, 'Протокол №' + (meetingNumber || ''));
+  SpreadsheetApp.getUi().showModalDialog(html, 'Новая встреча');
   PropertiesService.getScriptProperties().setProperty('currentMeetingId', meetingId);
 }
 

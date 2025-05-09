@@ -281,7 +281,7 @@
 
       // Устанавливаем заголовок
       const protocolNumber = document.title.match(/\d+/)[0]; // Извлекаем номер из title
-      document.getElementById('meetingTitle').textContent = `Протокол №${protocolNumber}`;
+      document.getElementById('meetingTitle').textContent = `Новая встреча`;
 
       // Сначала загружаем сотрудников
       loadEmployees().then(() => {

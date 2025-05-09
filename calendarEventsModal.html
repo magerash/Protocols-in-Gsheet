@@ -355,19 +355,20 @@
     function selectEvent(eventId) {
       const loading = document.getElementById('loading');
       loading.style.display = 'flex';
-      // Возвращаем Promise для асинхронной обработки
+      
       return new Promise((resolve) => {
         google.script.run
           .withSuccessHandler(data => {
+            // Закрываем окно календаря первым
+            google.script.host.close();
+            
+            // Открываем окно встречи с данными из календаря
             google.script.run
-              .withSuccessHandler(() => {
-                google.script.host.close();
-                // Обновляем основную форму
-                google.script.run
-                  .withSuccessHandler(() => window.top.location.reload())
-                  .showMeetingDialog();
+              .withSuccessHandler(meetingId => {
+                // Затем открываем окно записей
+                google.script.run.showRecordDialog(meetingId, data.meetingNumber);
               })
-              .saveSelectedEventData(data);
+              .showMeetingDialogWithData(data);
           })
           .selectEvent(eventId);
       });

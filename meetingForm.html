@@ -938,6 +938,9 @@
                 setTimeout(function() {
                   google.script.host.close();
                 }, 500);
+                google.script.run
+                  .withSuccessHandler(() => {})
+                  .showRecordDialog(response.id, response.number);
               })
               .withFailureHandler(function(error) {
                 showAlert("Ошибка: " + error.message, false);

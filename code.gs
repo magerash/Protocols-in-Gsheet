@@ -214,6 +214,18 @@ function createMeeting(meetingData) {
   let invalidEmails = [];
   
   try {
+    // Проверяем данные из календаря
+    const calendarData = JSON.parse(
+      PropertiesService.getScriptProperties()
+        .getProperty('CALENDAR_EVENT_DATA') || '{}'
+    );
+    
+    // Если есть данные из календаря, дополняем meetingData
+    if(calendarData.startTime) {
+      meetingData.date = calendarData.startTime;
+      meetingData.attendees = calendarData.attendees;
+    }
+        
     // Валидация даты
     Logger.log('[createMeeting] Валидация даты: %s', meetingData.date);
     const meetingDate = new Date(meetingData.date);
@@ -265,6 +277,10 @@ function createMeeting(meetingData) {
     };
     
     Logger.log('[createMeeting] Успешно создано. Результат: %s', JSON.stringify(result));
+    // Очищаем кэш календарных данных
+    PropertiesService.getScriptProperties()
+      .deleteProperty('CALENDAR_EVENT_DATA');
+
     return result;
 
   } catch (e) {

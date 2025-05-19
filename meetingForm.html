@@ -376,7 +376,7 @@
     <div class="input-container">
       <label class="input-label">Место проведения</label>
       <input id="location" class="input-field" type="text" 
-            placeholder="Место не указано">
+            placeholder="Не указано">
     </div>
 
     <div class="input-container">
@@ -421,77 +421,38 @@
   </div>
 
   <script>
-   
-    // Глобальные обработчики
-    function handleSave(event) {
-      event.preventDefault();
-      const btn = event.target;
-      btn.disabled = true;
+    
+    function showAlert(message, autoClose = false) {
+      const alert = document.getElementById('customAlert');
+      const messageEl = document.getElementById('customAlertMessage');
+      const okButton = document.getElementById('customAlertOK');
       
-      try {
-        const formData = collectFormData();
-        validateData(formData);
-        
-        google.script.run
-          .withSuccessHandler(() => {
-            showAlert('Данные успешно сохранены', true);
-          })
-          .withFailureHandler(error => {
-            showAlert(`Ошибка: ${error.message}`, false);
-            btn.disabled = false;
-          })
-          .createMeeting(formData);
-          
-      } catch (error) {
-        showAlert(error.message, false);
-        btn.disabled = false;
+      if (!alert || !messageEl || !okButton) return;
+      
+      messageEl.textContent = message;
+      alert.style.display = 'flex';
+      
+      okButton.onclick = function() {
+        alert.style.display = 'none';
+        if (autoClose) {
+          google.script.host.close();
+        }
+      };
+      
+      if (autoClose) {
+        setTimeout(() => {
+          alert.style.display = 'none';
+          google.script.host.close();
+        }, 3000);
       }
-    }
-
-    function handleCalendarImport(event) {
-      event.preventDefault();
-      google.script.run
-        .withSuccessHandler(html => {
-          const container = document.createElement('div');
-          container.innerHTML = html;
-          document.body.appendChild(container);
-        })
-        .showCalendarEventsModal();
-    }
-
-    function handleDropdownToggle(event) {
-      event.preventDefault();
-      const dropdown = document.getElementById('dropdownContent');
-      dropdown.classList.toggle('show');
     }
 
     document.addEventListener('DOMContentLoaded', function() {
       
-      const initHandlers = () => {
-        // Кнопка сохранения
-        const saveBtn = document.getElementById('saveMeeting');
-        if (saveBtn) {
-          saveBtn.addEventListener('click', handleSave);
-        }
-
-        // Кнопка импорта из календаря
-        const calendarBtn = document.getElementById('importFromCalendar');
-        if (calendarBtn) {
-          calendarBtn.addEventListener('click', handleCalendarImport);
-        }
-
-        // Дропдаун участников
-        const dropdown = document.getElementById('attendeesDropdown');
-        if (dropdown) {
-          dropdown.addEventListener('click', handleDropdownToggle);
-        }
-      };
-
       Promise.all([
           loadMeetingNumber(),
           loadEmployees()
       ]).then(function() {
-          initHandlers(); // Инициализация после загрузки
           // Скрываем индикатор и показываем форму
           document.getElementById('loadingContainer').style.display = 'none';
           document.getElementById('formContainer').style.display = 'block';
@@ -884,31 +845,6 @@
         });
       }    
 
-      function showAlert(message, autoClose = false) {
-        const alert = document.getElementById('customAlert');
-        const messageEl = document.getElementById('customAlertMessage');
-        const okButton = document.getElementById('customAlertOK');
-        
-        if (!alert || !messageEl || !okButton) return;
-        
-        messageEl.textContent = message;
-        alert.style.display = 'flex';
-        
-        okButton.onclick = function() {
-          alert.style.display = 'none';
-          if (autoClose) {
-            google.script.host.close();
-          }
-        };
-        
-        // if (autoClose) {
-        //   setTimeout(() => {
-        //     alert.style.display = 'none';
-        //     google.script.host.close();
-        //   }, 3000);
-        // }
-      }
-
       function resetMeetingForm() {
         // Сброс выбранных участников
         window.selectedEmails = new Set();
@@ -927,27 +863,6 @@
         });
       }
 
-      // function populateForm(data) {
-      //   // Основные поля
-      //   document.getElementById('topic').value = data.title || '';
-        
-      //   // Форматирование даты
-      //   if (data.startTime) { // Используем startTime вместо time
-      //     const date = new Date(data.startTime);
-      //     const offset = date.getTimezoneOffset() * 60000;
-      //     document.getElementById('meetingDateTime').value = 
-      //       new Date(date - offset).toISOString().slice(0, 16);
-      //   }
-
-      //   // Участники
-      //   window.selectedEmails = new Set(data.attendees || []);
-      //   updateSelectedOptions(); // Явный вызов обновления интерфейса
-
-      //   // Место (если есть соответствующее поле)
-      //   if (data.location && document.getElementById('location')) {
-      //     document.getElementById('location').value = data.location;
-      //   }
-      // }
       function populateForm(data) {
         try {
           console.log('Raw data for populate:', data);

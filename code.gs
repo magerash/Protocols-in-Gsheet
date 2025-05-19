@@ -224,17 +224,6 @@ function createMeeting(meetingData) {
         meetingData.attendees = parsedData.attendees || [];
       }
     }
-    // // Проверяем данные из календаря
-    // const calendarData = JSON.parse(
-    //   PropertiesService.getScriptProperties()
-    //     .getProperty('CALENDAR_EVENT_DATA') || '{}'
-    // );
-    
-    // // Если есть данные из календаря, дополняем meetingData
-    // if(calendarData.startTime) {
-    //   meetingData.date = calendarData.startTime;
-    //   meetingData.attendees = calendarData.attendees;
-    // }
         
     // Валидация даты
     Logger.log('[createMeeting] Валидация даты: %s', meetingData.date);

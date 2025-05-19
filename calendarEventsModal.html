@@ -356,19 +356,20 @@
       const loading = document.getElementById('loading');
       loading.style.display = 'flex';
       
-      return new Promise((resolve) => {
+      return new Promise((resolve, reject) => { // Добавить reject
         google.script.run
           .withSuccessHandler(data => {
-            // Закрываем окно календаря первым
             google.script.host.close();
-            
-            // Открываем окно встречи с данными из календаря
             google.script.run
               .withSuccessHandler(meetingId => {
-                // Затем открываем окно записей
                 google.script.run.showRecordDialog(meetingId, data.meetingNumber);
               })
               .showMeetingDialogWithData(data);
+          })
+          .withFailureHandler(error => { // Добавить обработчик ошибок
+            loading.style.display = 'none';
+            alert('Ошибка: ' + error.message);
+            reject(error);
           })
           .selectEvent(eventId);
       });
@@ -377,12 +378,14 @@
     // Инициализация дат
     window.onload = function() {
       const now = new Date();
-      const startDate = new Date(now.setDate(now.getDate() - 3)).toISOString().split('T')[0];
-      const endDate = new Date(now.setDate(now.getDate() + 6)).toISOString().split('T')[0];
+      const startDate = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000)
+        .toISOString().split('T')[0];
+      const endDate = new Date(now.getTime() + 6 * 24 * 60 * 60 * 1000)
+        .toISOString().split('T')[0];
       
       document.getElementById('startDate').value = startDate;
       document.getElementById('endDate').value = endDate;
-      loadEvents();
+      loadEvents();   
     };
   </script>
 </body>

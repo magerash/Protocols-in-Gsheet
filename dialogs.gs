@@ -17,17 +17,45 @@ function showMeetingDialog() {
   SpreadsheetApp.getUi().showModalDialog(html, 'Новая встреча');
 }
 
+// function showMeetingDialogWithData(data) {
+//   // Сохраняем данные календаря перед открытием
+//   PropertiesService.getScriptProperties()
+//     .setProperty('CALENDAR_EVENT_DATA', JSON.stringify(data));
+  
+//   const html = HtmlService.createHtmlOutputFromFile('meetingForm')
+//     .setWidth(600)
+//     .setHeight(650);
+  
+//   SpreadsheetApp.getUi().showModalDialog(html, 'Новая встреча');
+//   return data.id; // Возвращаем ID созданной встречи
+// }
+
 function showMeetingDialogWithData(data) {
-  // Сохраняем данные календаря перед открытием
+  console.log('Received calendar data:', JSON.stringify(data));
+  // Принудительная очистка предыдущих данных
+  PropertiesService.getScriptProperties().deleteProperty('CALENDAR_EVENT_DATA');
+
+  // Явно преобразуем даты в строки
+  const preparedData = {
+    title: data.title,
+    startTime: new Date(data.startTime).toISOString(),
+    attendees: data.attendees || [],
+    location: data.location || ""
+  };
+  
   PropertiesService.getScriptProperties()
-    .setProperty('CALENDAR_EVENT_DATA', JSON.stringify(data));
+    .setProperty('CALENDAR_EVENT_DATA', JSON.stringify(preparedData));
+
+  console.log('Saved to properties:', 
+  PropertiesService.getScriptProperties().getProperty('CALENDAR_EVENT_DATA'));
+  // Задержка для гарантии сохранения данных
+  Utilities.sleep(1000);
   
   const html = HtmlService.createHtmlOutputFromFile('meetingForm')
     .setWidth(600)
     .setHeight(650);
   
   SpreadsheetApp.getUi().showModalDialog(html, 'Новая встреча');
-  return data.id; // Возвращаем ID созданной встречи
 }
 
 function showRecordDialog(meetingId, meetingNumber) {

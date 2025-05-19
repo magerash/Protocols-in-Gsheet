@@ -145,6 +145,7 @@ function getEmployees() {
   });
   cache.putAll(chunkData, CACHE_EXPIRATION);
 
+  console.log('Loaded employees:', employeeCache.map(e => e.email)); // Логирование email
   return employeeCache;
 }
 
@@ -214,17 +215,26 @@ function createMeeting(meetingData) {
   let invalidEmails = [];
   
   try {
-    // Проверяем данные из календаря
-    const calendarData = JSON.parse(
-      PropertiesService.getScriptProperties()
-        .getProperty('CALENDAR_EVENT_DATA') || '{}'
-    );
-    
-    // Если есть данные из календаря, дополняем meetingData
-    if(calendarData.startTime) {
-      meetingData.date = calendarData.startTime;
-      meetingData.attendees = calendarData.attendees;
+    const calendarData = PropertiesService.getScriptProperties()
+      .getProperty('CALENDAR_EVENT_DATA');
+    if (calendarData) { // Добавить проверку на наличие данных
+      const parsedData = JSON.parse(calendarData);
+      if (parsedData.startTime) {
+        meetingData.date = parsedData.startTime;
+        meetingData.attendees = parsedData.attendees || [];
+      }
     }
+    // // Проверяем данные из календаря
+    // const calendarData = JSON.parse(
+    //   PropertiesService.getScriptProperties()
+    //     .getProperty('CALENDAR_EVENT_DATA') || '{}'
+    // );
+    
+    // // Если есть данные из календаря, дополняем meetingData
+    // if(calendarData.startTime) {
+    //   meetingData.date = calendarData.startTime;
+    //   meetingData.attendees = calendarData.attendees;
+    // }
         
     // Валидация даты
     Logger.log('[createMeeting] Валидация даты: %s', meetingData.date);
@@ -263,7 +273,8 @@ function createMeeting(meetingData) {
       meetingDate,
       meetingData.topic,
       formattedNames.join(', '),
-      attendeeIds.join(', ')
+      attendeeIds.join(', '),
+      meetingData.location
     ]);
 
     const result = { 
@@ -341,11 +352,11 @@ function getMeetingAttendees(meetingId) {
     
     Logger.log('[getMeetingAttendees] Индексы колонок: ID_COL=%s, ATTENDEES_COL=%s', ID_COL, ATTENDEES_COL);
     
-    const meeting = data.find(row => row[ID_COL] === 79);
-    // if (!meeting) {
-    //   Logger.log('[getMeetingAttendees] Встреча не найдена');
-    //   return [];
-    // }
+    const meeting = data.find(row => row[ID_COL] === meetingId); // Исправить 79 на meetingId
+    if (!meeting) {
+      Logger.log('[getMeetingAttendees] Встреча не найдена');
+      return [];
+    }
     
     const attendeeIds = meeting[ATTENDEES_COL].split(', ').map(Number);
     Logger.log('[getMeetingAttendees] Найдено ID участников: %s', attendeeIds.join(', '));

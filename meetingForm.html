@@ -418,43 +418,80 @@
       <button id="saveMeeting" class="button">Сохранить встречу</button>
     </div>
 
-    <!-- <div class="input-container">
-      <div class="input-container">
-        <label class="input-label">    </label>
-        <label class="input-label">    </label>
-        <label class="input-label">    </label>
-        <label class="input-label">    </label>
-      </div>
-    </div>
-    
-    <div class="input-container">
-      <div class="input-container">
-        <label class="input-label">    </label>
-        <label class="input-label">    </label>
-        <label class="input-label">    </label>
-        <label class="input-label">    </label>
-        <label class="input-label">    </label>
-      </div>
-    </div>
-
-    <div class="input-container">
-      <div class="input-container">
-        <label class="input-label">__________________________________________________________________________________________</label>
-        <div class="import-section">
-          <button id="importFromCalendar" class="button button-dev" >Выбрать из календаря</button>
-          <!-- <button id="importByLink" class="button button-dev" >Загрузить по ссылке</button> -->
-        <!-- </div>
-      </div>
-    </div> --> 
-
   </div>
 
   <script>
+   
+    // Глобальные обработчики
+    function handleSave(event) {
+      event.preventDefault();
+      const btn = event.target;
+      btn.disabled = true;
+      
+      try {
+        const formData = collectFormData();
+        validateData(formData);
+        
+        google.script.run
+          .withSuccessHandler(() => {
+            showAlert('Данные успешно сохранены', true);
+          })
+          .withFailureHandler(error => {
+            showAlert(`Ошибка: ${error.message}`, false);
+            btn.disabled = false;
+          })
+          .createMeeting(formData);
+          
+      } catch (error) {
+        showAlert(error.message, false);
+        btn.disabled = false;
+      }
+    }
+
+    function handleCalendarImport(event) {
+      event.preventDefault();
+      google.script.run
+        .withSuccessHandler(html => {
+          const container = document.createElement('div');
+          container.innerHTML = html;
+          document.body.appendChild(container);
+        })
+        .showCalendarEventsModal();
+    }
+
+    function handleDropdownToggle(event) {
+      event.preventDefault();
+      const dropdown = document.getElementById('dropdownContent');
+      dropdown.classList.toggle('show');
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
+      
+      const initHandlers = () => {
+        // Кнопка сохранения
+        const saveBtn = document.getElementById('saveMeeting');
+        if (saveBtn) {
+          saveBtn.addEventListener('click', handleSave);
+        }
+
+        // Кнопка импорта из календаря
+        const calendarBtn = document.getElementById('importFromCalendar');
+        if (calendarBtn) {
+          calendarBtn.addEventListener('click', handleCalendarImport);
+        }
+
+        // Дропдаун участников
+        const dropdown = document.getElementById('attendeesDropdown');
+        if (dropdown) {
+          dropdown.addEventListener('click', handleDropdownToggle);
+        }
+      };
+
       Promise.all([
           loadMeetingNumber(),
           loadEmployees()
       ]).then(function() {
+          initHandlers(); // Инициализация после загрузки
           // Скрываем индикатор и показываем форму
           document.getElementById('loadingContainer').style.display = 'none';
           document.getElementById('formContainer').style.display = 'block';
@@ -475,8 +512,10 @@
           console.error('Ошибка загрузки:', error);
           document.getElementById('loadingContainer').innerHTML = 
               '<div style="color: #d93025;">Ошибка загрузки данных</div>';
+          console.error('Initialization failed:', error);
       });
-      
+    
+
       // Инициализация кнопки после полной загрузки
       setTimeout(() => {
         initializeSaveButton();
@@ -487,17 +526,6 @@
         }
       }, 100);
 
-      // Добавьте функцию для загрузки данных
-      // function loadSelectedEventData() {
-      //   google.script.run
-      //     .withSuccessHandler(data => {
-      //       if (data) {
-      //         populateForm(data);
-      //         google.script.run.clearSelectedEventData();
-      //       }
-      //     })
-      //     .getSelectedEventData();
-      // }
       function loadSelectedEventData() {
         google.script.run
           .withSuccessHandler(rawData => {

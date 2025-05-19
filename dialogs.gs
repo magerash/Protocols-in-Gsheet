@@ -11,24 +11,14 @@ function onOpen() {
 }
 
 function showMeetingDialog() {
+  // Явная очистка данных при открытии не из календаря
+  PropertiesService.getScriptProperties().deleteProperty('CALENDAR_EVENT_DATA');
+
   var html = HtmlService.createHtmlOutputFromFile('meetingForm')
     .setWidth(600)
     .setHeight(650);
   SpreadsheetApp.getUi().showModalDialog(html, 'Новая встреча');
 }
-
-// function showMeetingDialogWithData(data) {
-//   // Сохраняем данные календаря перед открытием
-//   PropertiesService.getScriptProperties()
-//     .setProperty('CALENDAR_EVENT_DATA', JSON.stringify(data));
-  
-//   const html = HtmlService.createHtmlOutputFromFile('meetingForm')
-//     .setWidth(600)
-//     .setHeight(650);
-  
-//   SpreadsheetApp.getUi().showModalDialog(html, 'Новая встреча');
-//   return data.id; // Возвращаем ID созданной встречи
-// }
 
 function showMeetingDialogWithData(data) {
   console.log('Received calendar data:', JSON.stringify(data));

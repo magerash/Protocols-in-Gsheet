@@ -419,10 +419,17 @@
     </div>
 
   </div>
+  
+  <div id="customAlert" class="custom-alert">
+    <div class="custom-alert-content">
+      <div class="custom-alert-message" id="customAlertMessage"></div>
+      <button class="custom-alert-button" id="customAlertOK">OK</button>
+    </div>
+  </div>
 
   <script>
     
-    function showAlert(message, autoClose = false) {
+    function showAlert(message, autoClose = true) {
       const alert = document.getElementById('customAlert');
       const messageEl = document.getElementById('customAlertMessage');
       const okButton = document.getElementById('customAlertOK');
@@ -1020,13 +1027,6 @@
     });
     
   </script>
-
-  <div id="customAlert" class="custom-alert">
-    <div class="custom-alert-content">
-      <div class="custom-alert-message" id="customAlertMessage"></div>
-      <button class="custom-alert-button" id="customAlertOK">OK</button>
-    </div>
-  </div>
 
 </body>
 </html>

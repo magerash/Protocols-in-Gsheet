@@ -1,7 +1,5 @@
 //файл: code.gs
 
-const DEBUG_MODE = true;
-
 // Пример улучшенного логирования
 function customLog(funcName, message, ...args) {
   if (DEBUG_MODE) {
@@ -25,6 +23,7 @@ var employeeCache = null;
 const CACHE_EXPIRATION = 5 * 60; // 5 минут
 const CACHE_KEY_PREFIX = 'employees_part_';
 const CHUNK_SIZE = 90 * 1024; 
+const DEBUG_MODE = true;
 
 function onEdit(e) {
   Logger.log('[onEdit] Событие редактирования. Лист: %s', e.source.getActiveSheet().getName());
@@ -145,7 +144,6 @@ function getEmployees() {
   });
   cache.putAll(chunkData, CACHE_EXPIRATION);
 
-  console.log('Loaded employees:', employeeCache.map(e => e.email)); // Логирование email
   return employeeCache;
 }
 
@@ -369,3 +367,5 @@ function getMeetingAttendees(meetingId) {
     throw e;
   }
 }
+
+

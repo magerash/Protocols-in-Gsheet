@@ -982,11 +982,12 @@
                 btn.textContent = 'Сохранить встречу';
                 isSaving = false;
               })
-              .createMeeting(meetingData).then(function(response) {
-                if (response && response.id) { // Добавить проверку
-                  google.script.host.close();
-                }
-              });
+              // .createMeeting(meetingData).then(function(response) {
+              //   if (response && response.id) { // Добавить проверку
+              //     google.script.host.close();
+              //   }
+              // });
+              .createMeeting(meetingData);
           } catch (error) {
             showAlert(error.message, false);
             btn.disabled = false;

@@ -280,7 +280,8 @@
       var isInitialized = false;
 
       // Устанавливаем заголовок
-      const protocolNumber = document.title.match(/\d+/)[0]; // Извлекаем номер из title
+      const protocolMatch = document.title.match(/\d+/);
+      const protocolNumber = protocolMatch ? protocolMatch[0] : 'N/A';
       document.getElementById('meetingTitle').textContent = `Записи встречи`;
 
       // Сначала загружаем сотрудников
@@ -415,29 +416,34 @@
       };
     }
 
-    function setupRecordElements(template, { recordNumber, employees, recordTypes, importanceLevels, priorityLevels }) {
+    function setupRecordElements(template, data) {
       const clone = template.content.cloneNode(true);
       const accordion = clone.querySelector('.accordion');
       
       // Установка номера записи
       const numberElement = clone.querySelector('.record-number');
-      if (numberElement) numberElement.textContent = recordNumber;
+      if (numberElement) numberElement.textContent = data.recordNumber;
       
       // Заполнение выпадающих списков
-      fillSelect(accordion.querySelector('.record-type'), recordTypes);
-      fillSelect(accordion.querySelector('.importance'), importanceLevels);
-      fillSelect(accordion.querySelector('.priority'), priorityLevels);
+      const typeSelect = accordion.querySelector('.record-type');
+      if (typeSelect) fillSelect(typeSelect, data.recordTypes);
+
+      const importanceSelect = accordion.querySelector('.importance');
+      if (importanceSelect) fillSelect(importanceSelect, data.importanceLevels);
+
+      const prioritySelect = accordion.querySelector('.priority');
+      if (prioritySelect) fillSelect(prioritySelect, data.priorityLevels);
       
       // Заполнение списка ответственных
       const responsibleSelect = accordion.querySelector('.responsible');
       if (responsibleSelect) {
-        responsibleSelect.innerHTML = '<option value="" disabled selected>Выберите ответственных</option>';
-        employees.forEach(employee => {
-          responsibleSelect.add(new Option(employee, employee));
-        });
-      }
-      
-      return { accordion, recordNumber };
+          responsibleSelect.innerHTML = '<option value="" disabled selected>Выберите ответственных</option>';
+          data.employees.forEach(employee => {
+              const option = new Option(`${employee.firstName} ${employee.lastName}`, employee.id);
+              responsibleSelect.add(option);
+          });
+      }      
+      return { accordion, recordNumber: data.recordNumber  };
     }
 
     function setupRecordEventHandlers(accordion, recordNumber) {
@@ -594,12 +600,17 @@
     }
 
     function fillSelect(selectElement, options) {
-      options.forEach(function(option) {
-        var element = document.createElement('option');
-        element.value = option;
-        element.textContent = option;
-        selectElement.appendChild(element);
-      });
+        if (!selectElement || !options) return;
+        
+        selectElement.innerHTML = ''; // Очищаем только если элемент существует
+        options.forEach(function(option) {
+            if (typeof option === 'string') {
+                const element = document.createElement('option');
+                element.value = option;
+                element.textContent = option;
+                selectElement.appendChild(element);
+            }
+        });
     }
     
     function saveAllRecords() {

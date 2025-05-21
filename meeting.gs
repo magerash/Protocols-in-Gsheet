@@ -1,4 +1,4 @@
-//файл: code.gs
+//файл: meeting.gs
 
 // Пример улучшенного логирования
 function customLog(funcName, message, ...args) {

@@ -48,12 +48,15 @@ function showMeetingDialogWithData(data) {
   SpreadsheetApp.getUi().showModalDialog(html, 'Новая встреча');
 }
 
-function showRecordDialog(meetingId, meetingNumber) {
-  var html = HtmlService.createHtmlOutputFromFile('recordForm')
+function showRecordDialog(meetingId='', meetingNumber='') {
+  const props = PropertiesService.getScriptProperties();
+  props.setProperty('currentMeetingId', meetingId);
+  props.setProperty('currentMeetingNumber', meetingNumber);
+  
+  const html = HtmlService.createHtmlOutputFromFile('recordForm')
     .setWidth(800)
     .setHeight(650);
   SpreadsheetApp.getUi().showModalDialog(html, 'Записи встречи');
-  PropertiesService.getScriptProperties().setProperty('currentMeetingId', meetingId);
 }
 
 function showCalendarEventsModal() {

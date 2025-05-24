@@ -368,4 +368,10 @@ function getMeetingAttendees(meetingId) {
   }
 }
 
-
+function getCurrentMeetingData() {
+  const props = PropertiesService.getScriptProperties();
+  return {
+    id: props.getProperty('currentMeetingId'),
+    number: props.getProperty('currentMeetingNumber')
+  };
+}

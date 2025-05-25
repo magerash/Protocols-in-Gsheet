@@ -348,10 +348,11 @@
                             .catch(handleError);
                     })
                     .withFailureHandler(handleError)
-                    .getMeetingParticipants(currentMeetingId);
+                    // .getMeetingParticipants(currentMeetingId);
+                    .getMeetingData(currentMeetingId)
             })
             .withFailureHandler(handleError)
-            .getCurrentMeetingData();
+            .getCurrentMeeting();
     });
 
     function handleError(error) {

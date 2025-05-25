@@ -368,7 +368,7 @@ function getMeetingAttendees(meetingId) {
   }
 }
 
-function getCurrentMeetingData() {
+function getCurrentMeeting() {
   const props = PropertiesService.getScriptProperties();
   return {
     id: props.getProperty('currentMeetingId'),
@@ -376,63 +376,64 @@ function getCurrentMeetingData() {
   };
 }
 
-function getMeetingParticipants(meetingId) {
-  try {
-    const sheet = SpreadsheetApp.getActive().getSheetByName('Встречи');
-    if (!sheet) throw new Error('Лист "Встречи" не найден');
+// function getMeetingParticipants(meetingId) {
+//   try {
+//     const sheet = SpreadsheetApp.getActive().getSheetByName('Встречи');
+//     if (!sheet) throw new Error('Лист "Встречи" не найден');
     
-    const data = sheet.getDataRange().getValues();
-    const headers = data[0];
+//     const data = sheet.getDataRange().getValues();
+//     const headers = data[0];
     
-    // Находим индексы колонок
-    const idCol = headers.findIndex(h => h.trim() === 'ID встречи');
-    const attendeesCol = headers.findIndex(h => h.trim() === 'ID участников');
+//     // Находим индексы колонок
+//     const idCol = headers.findIndex(h => h.trim() === 'ID встречи');
+//     const attendeesCol = headers.findIndex(h => h.trim() === 'ID участников');
     
-    if (idCol === -1 || attendeesCol === -1) {
-      throw new Error('Не найдены требуемые колонки в листе "Встречи"');
-    }
+//     if (idCol === -1 || attendeesCol === -1) {
+//       throw new Error('Не найдены требуемые колонки в листе "Встречи"');
+//     }
     
-    // Ищем нужную встречу
-    const meetingRowData = data.find(row => row[idCol] === meetingId);
+//     // Ищем нужную встречу
+//     const meetingRowData = data.find(row => row[idCol] === meetingId);
     
-    if (!meetingRowData) {
-      throw new Error(`Встреча №${meetingId} не найдена`);
-    }
+//     if (!meetingRowData) {
+//       throw new Error(`Встреча №${meetingId} не найдена`);
+//     }
     
-    // Получаем ID участников как строки
-    const attendeeIds = String(meetingRowData[attendeesCol])
-      .split(/,\s?/) // Разделяем по запятым с пробелами или без
-      .map(id => id.trim())
-      .filter(id => id !== '');
+//     // Получаем ID участников как строки
+//     const attendeeIds = String(meetingRowData[attendeesCol])
+//       .split(/,\s?/) // Разделяем по запятым с пробелами или без
+//       .map(id => id.trim())
+//       .filter(id => id !== '');
 
-    // Получаем данные сотрудников
-    const employees = getEmployees();
+//     // Получаем данные сотрудников
+//     const employees = getEmployees();
 
-    // Сопоставляем ID с именами
-    const participants = attendeeIds.map(id => {
-      const employee = employees.find(e => e.id === id);
-      return {
-        id: id,
-        name: employee ? `${employee.firstName} ${employee.lastName}` : 'Неизвестный сотрудник'
-      };
-    });
+//     // Сопоставляем ID с именами
+//     const participants = attendeeIds.map(id => {
+//       const employee = employees.find(e => e.id === id);
+//       return {
+//         id: id,
+//         name: employee ? `${employee.firstName} ${employee.lastName}` : 'Неизвестный сотрудник'
+//       };
+//     });
 
-    Logger.log(
-      'Столбик с Id встречи: ' + idCol + '\n' +
-      'Столбик с ID участников: ' + attendeesCol + '\n' +
-      'ID встречи: ' + meetingId + '\n' +
-      'Строка текущей встречи: ' + meetingRowData + '\n' +
-      'Участники: ' + participants
-    )
+//     Logger.log(
+//       'Столбик с Id встречи: ' + idCol + '\n' +
+//       'Столбик с ID участников: ' + attendeesCol + '\n' +
+//       'ID встречи: ' + meetingId + '\n' +
+//       'Строка текущей встречи: ' + meetingRowData + '\n' +
+//       'Участники: ' + participants
+//     )
     
-    return participants;
+//     return participants;
     
-  } catch(e) {
-    console.error('Ошибка в getMeetingParticipants:', e);
-    throw new Error('Не удалось загрузить участников: ' + e.message);
-  }
-}
+//   } catch(e) {
+//     console.error('Ошибка в getMeetingParticipants:', e);
+//     throw new Error('Не удалось загрузить участников: ' + e.message);
+//   }
+// }
 
+// Для meetingForm.html
 function getEmployees() {
   const sheet = SpreadsheetApp.getActive().getSheetByName('Сотрудники');
   const data = sheet.getDataRange().getValues();
@@ -448,3 +449,50 @@ function getEmployees() {
     lastName: row[lastNameCol]
   }));
 }
+
+/**
+ * Получает все данные встречи по ID в виде объекта {ключ: значение}
+ * @param {string} meetingId - UUID встречи
+ * @returns {Object} Данные встречи в формате ключ-значение
+ */
+function getMeetingData(meetingId) {
+  try {
+    const sheet = SpreadsheetApp.getActive().getSheetByName('Встречи');
+    if (!sheet) throw new Error('Лист "Встречи" не найден');
+    
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0].map(h => h.trim()); // Нормализуем названия колонок
+    
+    // Находим индекс колонки с ID встречи
+    const idColIndex = headers.findIndex(h => h === 'ID встречи');
+    if (idColIndex === -1) throw new Error('Колонка "ID встречи" не найдена');
+    
+    // Ищем нужную строку
+    const meetingRow = data.find(row => row[idColIndex] === meetingId);
+    if (!meetingRow) throw new Error(`Встреча с ID "${meetingId}" не найдена`);
+    
+    // Собираем результат
+    const result = {};
+    headers.forEach((header, index) => {
+      let value = meetingRow[index];
+      
+      // Специальная обработка для колонки с ID участников
+      if (header === 'ID участников') {
+        value = String(value)
+          .split(/,\s?/)
+          .map(id => id.trim())
+          .filter(id => id !== '');
+      }
+      
+      result[header] = value;
+    });
+    
+    Logger.log(`Данные встречи ${meetingId}: ${JSON.stringify(result)}`);
+    return result;
+    
+  } catch(e) {
+    console.error('Ошибка в getMeetingData:', e);
+    throw new Error('Не удалось получить данные встречи: ' + e.message);
+  }
+}
+

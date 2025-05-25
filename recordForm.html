@@ -318,6 +318,7 @@
         .withSuccessHandler(function(data) {
           currentMeetingId = data.id;
           currentMeetingNumber = data.number;
+          window.meetingAttendees = data.attendees;
           initForm();
         })
         .getCurrentMeetingData();
@@ -368,34 +369,38 @@
         });
     }
 
-    // function loadEmployees() {
-    //   return new Promise(function(resolve, reject) {
-    //     if (employees && employees.length > 0) {
-    //       resolve(employees);
-    //       return;
-    //     }
-        
-    //     google.script.run
-    //       .withSuccessHandler(function(data) {
-    //         employees = data;
-    //         resolve(data);
-    //       })
-    //       .withFailureHandler(function(error) {
-    //         console.error('Ошибка загрузки сотрудников:', error);
-    //         reject(error);
-    //       })
-    //       .getEmployees();
-    //   });
-    // }
-
     function loadEmployees(meetingId) {
-      return new Promise(function(resolve, reject) {
-        google.script.run
-          .withSuccessHandler(resolve)
-          .withFailureHandler(reject)
-          .getMeetingAttendees(meetingId);
+      return new Promise((resolve, reject) => {
+        try {
+          // Сначала проверяем кэш через сервер
+          google.script.run
+            .withSuccessHandler(cachedAttendees => {
+              if (cachedAttendees.length > 0) {
+                console.log('Using cached attendees:', cachedAttendees);
+                resolve(cachedAttendees);
+                return;
+              }
+              
+              // Если кэш пуст, загружаем из таблицы
+              google.script.run
+                .withSuccessHandler(attendees => {
+                  // Сохраняем в кэш
+                  google.script.run
+                    .saveMeetingAttendees(attendees);
+                  resolve(attendees);
+                })
+                .withFailureHandler(reject)
+                .getMeetingAttendees(meetingId);
+            })
+            .withFailureHandler(reject)
+            .getCachedAttendees();
+            
+        } catch (e) {
+          console.error('Attendees load error:', e);
+          reject(e);
+        }
       });
-    }    
+    }
 
     function loadRecordTypes() {
       return new Promise(function(resolve) {

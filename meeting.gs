@@ -112,7 +112,8 @@ function getEmployees() {
     const lastName = row[columns.surname] || '';
     
     return {
-      id: row[columns.id],
+      // id: row[columns.id],
+      id: String(row[columns.id]), // Преобразуем ID в строку
       firstName: firstName,
       lastName: lastName,
       email: row[columns.email],
@@ -267,13 +268,17 @@ function createMeeting(meetingData) {
     const result = { 
       id: meetingId, 
       number: meetingData.meetingNumber,
+      attendees: attendeeIds, // Добавляем ID участников в ответ
       success: true,
       invalidEmails: invalidEmails,
       message: invalidEmails.length > 0 
         ? `Встреча сохранена, но не найдены: ${invalidEmails.join(', ')}`
         : 'Встреча успешно сохранена'      
     };
-    
+    // Кэшируем данные участников
+    PropertiesService.getScriptProperties()
+      .setProperty('currentMeetingAttendees', JSON.stringify(attendeeIds));
+      
     Logger.log('[createMeeting] Успешно создано. Результат: %s', JSON.stringify(result));
     // Очищаем кэш календарных данных
     PropertiesService.getScriptProperties()
@@ -345,7 +350,7 @@ function getMeetingAttendees(meetingId) {
       return [];
     }
     
-    const attendeeIds = meeting[ATTENDEES_COL].split(', ').map(Number);
+    const attendeeIds = meeting[ATTENDEES_COL].split(', ');
     Logger.log('[getMeetingAttendees] Найдено ID участников: %s', attendeeIds.join(', '));
     
     const employees = getEmployees();

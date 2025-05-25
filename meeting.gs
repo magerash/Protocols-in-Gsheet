@@ -375,3 +375,76 @@ function getCurrentMeetingData() {
     number: props.getProperty('currentMeetingNumber')
   };
 }
+
+function getMeetingParticipants(meetingId) {
+  try {
+    const sheet = SpreadsheetApp.getActive().getSheetByName('Встречи');
+    if (!sheet) throw new Error('Лист "Встречи" не найден');
+    
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    
+    // Находим индексы колонок
+    const idCol = headers.findIndex(h => h.trim() === 'ID встречи');
+    const attendeesCol = headers.findIndex(h => h.trim() === 'ID участников');
+    
+    if (idCol === -1 || attendeesCol === -1) {
+      throw new Error('Не найдены требуемые колонки в листе "Встречи"');
+    }
+    
+    // Ищем нужную встречу
+    const meetingRowData = data.find(row => row[idCol] === meetingId);
+    
+    if (!meetingRowData) {
+      throw new Error(`Встреча №${meetingId} не найдена`);
+    }
+    
+    // Получаем ID участников как строки
+    const attendeeIds = String(meetingRowData[attendeesCol])
+      .split(/,\s?/) // Разделяем по запятым с пробелами или без
+      .map(id => id.trim())
+      .filter(id => id !== '');
+
+    // Получаем данные сотрудников
+    const employees = getEmployees();
+
+    // Сопоставляем ID с именами
+    const participants = attendeeIds.map(id => {
+      const employee = employees.find(e => e.id === id);
+      return {
+        id: id,
+        name: employee ? `${employee.firstName} ${employee.lastName}` : 'Неизвестный сотрудник'
+      };
+    });
+
+    Logger.log(
+      'Столбик с Id встречи: ' + idCol + '\n' +
+      'Столбик с ID участников: ' + attendeesCol + '\n' +
+      'ID встречи: ' + meetingId + '\n' +
+      'Строка текущей встречи: ' + meetingRowData + '\n' +
+      'Участники: ' + participants
+    )
+    
+    return participants;
+    
+  } catch(e) {
+    console.error('Ошибка в getMeetingParticipants:', e);
+    throw new Error('Не удалось загрузить участников: ' + e.message);
+  }
+}
+
+function getEmployees() {
+  const sheet = SpreadsheetApp.getActive().getSheetByName('Сотрудники');
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  
+  const idCol = headers.indexOf('id');
+  const firstNameCol = headers.indexOf('Имя');
+  const lastNameCol = headers.indexOf('Фамилия');
+  
+  return data.slice(1).map(row => ({
+    id: row[idCol],
+    firstName: row[firstNameCol],
+    lastName: row[lastNameCol]
+  }));
+}

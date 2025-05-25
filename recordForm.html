@@ -233,7 +233,7 @@
     <div class="accordion-content">
       <div class="record" data-id="">
         <div class="record-container"> <!-- Добавляем новый контейнер -->
-        
+
           <div class="grid">
             <div class="input-container">
               <label class="input-label"></label>
@@ -306,53 +306,74 @@
     var currentMeetingNumber;  
 
     document.addEventListener('DOMContentLoaded', function() {
-      var isInitialized = false;
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlMeetingNumber = urlParams.get('meetingNumber');
 
-      // Устанавливаем заголовок
-      const protocolMatch = document.title.match(/\d+/);
-      const protocolNumber = protocolMatch ? protocolMatch[0] : 'N/A';
-      // document.getElementById('meetingTitle').textContent = ``;
+        // 1. Получаем данные встречи
+        google.script.run
+            .withSuccessHandler(meetingData => {
+                currentMeetingId = meetingData.id;
+                currentMeetingNumber = meetingData.number || urlMeetingNumber;
 
-    // Получаем ID встречи
-      google.script.run
-        .withSuccessHandler(function(data) {
-          currentMeetingId = data.id;
-          currentMeetingNumber = data.number;
-          initForm();
-        })
-        .getCurrentMeetingData();
-        
-      // Сначала загружаем сотрудников
-      loadEmployees().then(() => {
-        // Затем загружаем остальные данные
-        return Promise.all([
-          loadRecordTypes(),
-          loadImportanceLevels(),
-          loadPriorityLevels()
-        ]);
-      }).then(() => {
+                // 2. Загружаем участников встречи
+                google.script.run
+                    .withSuccessHandler(participants => {
+                        window.participants = participants;
+                        initSelects();
 
-        // Активируем кнопку только после полной загрузки
-        const addBtn = document.getElementById('addRecordBtn');
-        addBtn.disabled = false;
-        addBtn.textContent = 'Добавить запись';
-        
-        // Добавляем первую запись только если это первая инициализация
-        if (!isInitialized) {
-          addRecord();
-          isInitialized = true;
-        }
-        
-        // Назначаем обработчики кнопок
-        addBtn.addEventListener('click', addRecord);
-        document.getElementById('saveAllBtn').addEventListener('click', saveAllRecords);
-
-      }).catch(function(error) {
-        console.error('Ошибка загрузки:', error);
-        alert('Ошибка загрузки данных: ' + error.message);
-      });
+                        // 3. Загружаем общие данные
+                        loadEmployees()
+                            .then(() => Promise.all([
+                                loadRecordTypes(),
+                                loadImportanceLevels(),
+                                loadPriorityLevels()
+                            ]))
+                            .then(() => {
+                                // 4. Инициализация интерфейса
+                                const addBtn = document.getElementById('addRecordBtn');
+                                addBtn.disabled = false;
+                                addBtn.textContent = 'Добавить запись';
+                                
+                                addBtn.addEventListener('click', () => {
+                                    if (!window.participants?.length) {
+                                        alert('Сначала загрузите участников!');
+                                        return;
+                                    }
+                                    addRecord();
+                                });
+                                
+                                document.getElementById('saveAllBtn')
+                                    .addEventListener('click', saveAllRecords);
+                            })
+                            .catch(handleError);
+                    })
+                    .withFailureHandler(handleError)
+                    .getMeetingParticipants(currentMeetingId);
+            })
+            .withFailureHandler(handleError)
+            .getCurrentMeetingData();
     });
 
+    function handleError(error) {
+        console.error('Error:', error);
+        alert(`Ошибка: ${error.message || error}`);
+        google.script.host.close();
+    }
+
+    function initSelects() {
+      // Для всех select.responsive
+      document.querySelectorAll('.responsible').forEach(select => {
+        select.innerHTML = '<option value="" disabled selected>Выберите ответственных</option>';
+        
+        window.participants.forEach(participant => {
+          const option = document.createElement('option');
+          option.value = participant.id;
+          option.textContent = participant.name;
+          select.appendChild(option);
+        });
+      });
+    }
+    
     function initForm() {
       // document.getElementById('meetingTitle').textContent = 
       //   `Записи встречи №${currentMeetingNumber}`;
@@ -367,26 +388,6 @@
           console.error('Ошибка загрузки участников:', error);
         });
     }
-
-    // function loadEmployees() {
-    //   return new Promise(function(resolve, reject) {
-    //     if (employees && employees.length > 0) {
-    //       resolve(employees);
-    //       return;
-    //     }
-        
-    //     google.script.run
-    //       .withSuccessHandler(function(data) {
-    //         employees = data;
-    //         resolve(data);
-    //       })
-    //       .withFailureHandler(function(error) {
-    //         console.error('Ошибка загрузки сотрудников:', error);
-    //         reject(error);
-    //       })
-    //       .getEmployees();
-    //   });
-    // }
 
     function loadEmployees(meetingId) {
       return new Promise(function(resolve, reject) {

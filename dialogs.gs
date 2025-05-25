@@ -48,7 +48,7 @@ function showMeetingDialogWithData(data) {
   SpreadsheetApp.getUi().showModalDialog(html, 'Новая встреча');
 }
 
-function showRecordDialog(meetingId='', meetingNumber='') {
+function showRecordDialog(meetingId='e845a1dc-1c75-474f-b495-d930cd60f5d8', meetingNumber='') {
   const props = PropertiesService.getScriptProperties();
   props.setProperty('currentMeetingId', meetingId);
   props.setProperty('currentMeetingNumber', meetingNumber);

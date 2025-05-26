@@ -382,3 +382,236 @@ function getCurrentMeetingData() {
     number: props.getProperty('currentMeetingNumber')
   };
 }
+
+/**
+ * Получает полные данные встречи по ID
+ * @param {string} meetingId - ID встречи
+ * @returns {Object} - Объект с данными встречи
+ */
+function getMeetingById(meetingId) {
+  const cache = CacheService.getScriptCache();
+  const cacheKey = `meeting_${meetingId}`;
+ 
+  // Проверка кэша
+  const cachedData = cache.get(cacheKey);
+  if (cachedData) {
+    console.log('Данные из кэша:', cachedData);
+    return JSON.parse(cachedData);
+  }
+
+  const sheet = SpreadsheetApp.getActive().getSheetByName('Встречи');
+  const data = sheet.getDataRange().getValues();
+  // Явная проверка доступа
+  if (!sheet.getSheetId()) {
+    throw new Error('Нет доступа к листу "Встречи"');
+  }
+  // Нормализуем заголовки
+  const headers = data[0].map(h => h.trim().toLowerCase()); // Все в нижний регистр
+
+  // Получаем индексы с правильными названиями
+  const getHeaderIndex = (name) => {
+    const normalized = name.trim().toLowerCase();
+    return headers.findIndex(h => h === normalized);
+  };
+
+  const idIndex = getHeaderIndex('ID встречи');
+  const numberIndex = getHeaderIndex('Номер встречи');
+  const dateIndex = getHeaderIndex('Дата');
+  const topicIndex = getHeaderIndex('Тема встречи');
+  const attendeesIndex = getHeaderIndex('Участники');
+  const attendeesIdIndex = getHeaderIndex('ID участников');
+  const locationIndex = getHeaderIndex('Место встречи');
+
+  const meeting = data.find(row => {
+    const rowId = row[idIndex]?.toString().trim();
+    // console.log('Проверка ID:', rowId);
+    return rowId === meetingId;
+  });
+
+  // Преобразование даты с обработкой ошибок
+  let meetingDate;
+  try {
+    meetingDate = new Date(meeting[dateIndex]);
+    if (isNaN(meetingDate.getTime())) {
+      throw new Error('Некорректный формат даты');
+    }
+  } catch(e) {
+    console.error('Ошибка парсинга даты:', e.message);
+    meetingDate = new Date(); // Значение по умолчанию
+  }
+
+  // Проверяем индексы
+  if (idIndex === -1) throw new Error('Не найдена колонка "ID встречи"');
+
+  if (!meeting) {
+    console.error('Встреча не найдена. Полученные данные:', data);
+    throw new Error('Встреча не найдена');
+  }
+
+  // Логируем сырые данные
+  console.log('Найдена запись:', meeting);
+
+  // Форматируем данные
+  const result = {
+    id: meetingId,
+    number: meeting[numberIndex]?.toString(),
+    date: Utilities.formatDate(
+      meetingDate, 
+      Session.getScriptTimeZone(), 
+      "dd.MM.yyyy HH:mm"
+    ),
+    topic: meeting[topicIndex],
+    location: meeting[locationIndex],
+    attendees: {
+      ids: meeting[attendeesIdIndex]?.split(',').map(id => id.trim()) || [],
+      emails: meeting[attendeesIndex]?.split(',').map(e => e.trim()) || []
+    },
+    meta: {
+      created: Utilities.formatDate(
+        new Date(), 
+        Session.getScriptTimeZone(), 
+        "yyyy-MM-dd'T'HH:mm:ss'Z'"
+      ),
+      lastModified: Utilities.formatDate(
+        new Date(), 
+        Session.getScriptTimeZone(), 
+        "yyyy-MM-dd'T'HH:mm:ss'Z'"
+      )
+    }
+  };
+  console.log('Результат:', JSON.stringify(result, null, 2));
+  
+  // Кэшируем на 5 минут
+  cache.put(cacheKey, JSON.stringify(result), 300);
+  return result;
+}
+
+function testGetMeeting() {
+  getMeetingById('ae76e9b4-368d-4c85-91a6-30dd665ded4f');
+}
+
+/**
+ * Получает все записи для встречи
+ * @param {string} meetingId - ID встречи
+ * @returns {Array} - Массив объектов записей
+ */
+function getRecordsByMeetingId(meetingId) {
+  console.log('Начало обработки для meetingId:', meetingId);
+  const cache = CacheService.getScriptCache();
+  const cacheKey = `records_${meetingId}`;
+  
+  // Проверка кэша
+  const cachedData = cache.get(cacheKey);
+  if (cachedData) {
+    return JSON.parse(cachedData);
+  }
+
+  const sheet = SpreadsheetApp.getActive().getSheetByName('Записи');
+  if (!sheet) {
+    console.error('Лист "Записи" не найден');
+    throw new Error('Лист записей отсутствует');
+  }
+  const data = sheet.getDataRange().getValues();
+  console.log('Всего записей в листе:', data.length);
+  const headers = data[0].map(h => h.toLowerCase().trim());
+  console.log('Заголовки:', headers);
+
+  const meetingIdIndex = headers.indexOf('id встречи');
+  console.log('Индекс ID встречи:', meetingIdIndex);
+
+  const filtered = data.filter(row => 
+    row[meetingIdIndex]?.toString().trim() === meetingId
+  );
+  console.log('Найдено записей:', filtered.length);
+
+  const parseDate = (dateValue) => {
+    try {
+      // Если значение уже является объектом Date
+      if (dateValue instanceof Date) {
+        return dateValue;
+      }
+      
+      // Если это строка формата DD-MM-YYYY
+      if (typeof dateValue === 'string') {
+        const [day, month, year] = dateValue.split('-');
+        return new Date(year, month-1, day);
+      }
+      
+      // Для других случаев (timestamp, etc)
+      return new Date(dateValue);
+    } catch(e) {
+      console.error('Ошибка парсинга даты:', e);
+      return new Date(); // Возвращаем текущую дату как fallback
+    }
+  };
+
+  // Проверка индексов колонок
+  const getHeaderIndex = (name) => {
+    const index = headers.indexOf(name.toLowerCase().trim());
+    if (index === -1) throw new Error(`Колонка "${name}" не найдена`);
+    return index;
+  };
+
+  const recordIdIndex = getHeaderIndex('ID записи');
+  const typeIndex = getHeaderIndex('Запись');
+  const textIndex = getHeaderIndex('Текст записи');
+  const dateIndex = getHeaderIndex('Срок');
+  const responsibleIndex = getHeaderIndex('Ответственные ID'); 
+  const importanceIndex = getHeaderIndex('Значимость');
+  const priorityIndex = getHeaderIndex('Приоритет');
+  const completedIndex = getHeaderIndex('Выполнено');
+
+  const records = filtered.map((row, idx) => {
+    console.log(`Обработка строки ${idx + 1}:`, JSON.stringify(row));
+    // Логирование сырых данных даты
+    const rawDate = row[dateIndex];
+    console.log('Тип данных даты:', typeof rawDate);
+    console.log('Значение даты:', rawDate);
+
+    return {
+      id: row[recordIdIndex]?.toString(),
+      type: row[typeIndex],
+      text: row[textIndex],
+      dueDate: (() => {
+        try {
+          const date = parseDate(rawDate);
+          console.log('Успешно распарсено:', date);
+          return Utilities.formatDate(
+            date, 
+            Session.getScriptTimeZone(), 
+            "dd.MM.yyyy"
+          );
+        } catch(e) {
+          console.error('Финальная обработка даты:', e);
+          return 'Некорректная дата';
+        }
+      })(),  
+      responsible: (() => {
+        const raw = row[responsibleIndex]?.toString().trim();
+        if (!raw) return [];
+        
+        return raw.split(';').map(r => {
+          const match = r.match(/(.*?)\s\((.*?)\)/);
+          return match ? { 
+            name: match[1].trim(), 
+            email: match[2].trim() 
+          } : {name: r.trim(), email: ''};
+        });
+      })(),      
+      status: {
+        importance: row[importanceIndex] || 'Не указано',
+        priority: row[priorityIndex] || 'Не указано',
+        completed: row[completedIndex]?.toString().toLowerCase()
+      }
+    }
+  });
+
+  // Кэшируем на 5 минут
+  // cache.put(cacheKey, JSON.stringify(records), 300);
+  console.log('Итоговые записи:', JSON.stringify(records, null, 2));
+  return records;
+}
+
+function testGetRecords() {
+  getRecordsByMeetingId('e845a1dc-1c75-474f-b495-d930cd60f5d8');
+}

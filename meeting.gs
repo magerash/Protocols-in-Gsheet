@@ -278,7 +278,7 @@ function createMeeting(meetingData) {
     // Кэшируем данные участников
     PropertiesService.getScriptProperties()
       .setProperty('currentMeetingAttendees', JSON.stringify(attendeeIds));
-      
+
     Logger.log('[createMeeting] Успешно создано. Результат: %s', JSON.stringify(result));
     // Очищаем кэш календарных данных
     PropertiesService.getScriptProperties()
@@ -361,7 +361,9 @@ function getMeetingAttendees(meetingId) {
       .map(e => ({
         email: e.email,
         name: `${e.firstName} ${e.lastName}`.trim(),
-        id: e.id
+        id: String(e.id), // Гарантируем строковый формат
+        firstName: e.firstName || 'Имя не указано', // Запасные значения
+        lastName: e.lastName || 'Фамилия не указана'        
       }));
     
     Logger.log('[getMeetingAttendees] Результат: %s записей', result.length);

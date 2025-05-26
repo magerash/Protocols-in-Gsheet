@@ -506,12 +506,19 @@
       // Заполнение списка ответственных
       const responsibleSelect = accordion.querySelector('.responsible');
       if (responsibleSelect) {
-          responsibleSelect.innerHTML = '<option value="" disabled selected>Выберите ответственных</option>';
-          data.employees.forEach(employee => {
-              const option = new Option(`${employee.firstName} ${employee.lastName}`, employee.id);
-              responsibleSelect.add(option);
-          });
-      }      
+        responsibleSelect.innerHTML = '<option value="" disabled selected>Выберите ответственных</option>';
+        data.employees.forEach(employee => {
+          const option = new Option(
+            `${employee.firstName} ${employee.lastName}`, 
+            employee.id
+          );
+          option.innerHTML = `
+            <span>${employee.firstName} ${employee.lastName}</span>
+            <span class="option-email">${employee.email}</span>
+          `;
+          responsibleSelect.add(option);
+        });
+      }       
       return { accordion, recordNumber: data.recordNumber  };
     }
 

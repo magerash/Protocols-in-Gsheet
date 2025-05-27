@@ -464,7 +464,7 @@ function getMeetingById(meetingId) {
     location: meeting[locationIndex],
     attendees: {
       ids: meeting[attendeesIdIndex]?.split(',').map(id => id.trim()) || [],
-      emails: meeting[attendeesIndex]?.split(',').map(e => e.trim()) || []
+      displayNames: meeting[attendeesIndex]?.split(',').map(e => e.trim()) || []
     },
     meta: {
       created: Utilities.formatDate(

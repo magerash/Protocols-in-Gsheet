@@ -1,4 +1,4 @@
-<!-- meetingForm -->
+<!--файл: meetingForm -->
 
 <!DOCTYPE html>
 <html>
@@ -374,6 +374,12 @@
     </div>
     
     <div class="input-container">
+      <label class="input-label">Место проведения</label>
+      <input id="location" class="input-field" type="text" 
+            placeholder="Не указано">
+    </div>
+
+    <div class="input-container">
       <label class="input-label">Участники</label>
     </div>
 
@@ -412,39 +418,44 @@
       <button id="saveMeeting" class="button">Сохранить встречу</button>
     </div>
 
-    <!-- <div class="input-container">
-      <div class="input-container">
-        <label class="input-label">    </label>
-        <label class="input-label">    </label>
-        <label class="input-label">    </label>
-        <label class="input-label">    </label>
-      </div>
+  </div>
+  
+  <div id="customAlert" class="custom-alert">
+    <div class="custom-alert-content">
+      <div class="custom-alert-message" id="customAlertMessage"></div>
+      <button class="custom-alert-button" id="customAlertOK">OK</button>
     </div>
-    
-    <div class="input-container">
-      <div class="input-container">
-        <label class="input-label">    </label>
-        <label class="input-label">    </label>
-        <label class="input-label">    </label>
-        <label class="input-label">    </label>
-        <label class="input-label">    </label>
-      </div>
-    </div>
-
-    <div class="input-container">
-      <div class="input-container">
-        <label class="input-label">__________________________________________________________________________________________</label>
-        <div class="import-section">
-          <button id="importFromCalendar" class="button button-dev" >Выбрать из календаря</button>
-          <!-- <button id="importByLink" class="button button-dev" >Загрузить по ссылке</button> -->
-        <!-- </div>
-      </div>
-    </div> --> 
-
   </div>
 
   <script>
+    
+    function showAlert(message, autoClose = true) {
+      const alert = document.getElementById('customAlert');
+      const messageEl = document.getElementById('customAlertMessage');
+      const okButton = document.getElementById('customAlertOK');
+      
+      if (!alert || !messageEl || !okButton) return;
+      
+      messageEl.textContent = message;
+      alert.style.display = 'flex';
+      
+      okButton.onclick = function() {
+        alert.style.display = 'none';
+        if (autoClose) {
+          google.script.host.close();
+        }
+      };
+      
+      if (autoClose) {
+        setTimeout(() => {
+          alert.style.display = 'none';
+          google.script.host.close();
+        }, 3000);
+      }
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
+      
       Promise.all([
           loadMeetingNumber(),
           loadEmployees()
@@ -469,8 +480,10 @@
           console.error('Ошибка загрузки:', error);
           document.getElementById('loadingContainer').innerHTML = 
               '<div style="color: #d93025;">Ошибка загрузки данных</div>';
+          console.error('Initialization failed:', error);
       });
-      
+    
+
       // Инициализация кнопки после полной загрузки
       setTimeout(() => {
         initializeSaveButton();
@@ -481,14 +494,54 @@
         }
       }, 100);
 
-      // Добавьте функцию для загрузки данных
       function loadSelectedEventData() {
         google.script.run
-          .withSuccessHandler(data => {
-            if (data) {
-              populateForm(data);
-              google.script.run.clearSelectedEventData();
+          .withSuccessHandler(rawData => {
+            try {
+              // Добавляем проверку на пустые данные
+              if (!rawData) {
+                console.warn('No calendar data received');
+                return;
+              }
+
+              const data = JSON.parse(rawData);
+              
+              // Добавляем проверку структуры данных
+              if (!data || typeof data !== 'object') {
+                throw new Error('Invalid data format');
+              }
+
+              // Защищенное обращение к свойствам
+              if (data.title) {
+                document.getElementById('topic').value = data.title;
+              }
+              
+              if (data.startTime) {
+                const date = new Date(data.startTime);
+                const localDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000));
+                document.getElementById('meetingDateTime').value = localDate.toISOString().slice(0,16);
+              }
+
+              if (data.attendees?.length > 0) {
+                window.selectedEmails = new Set(data.attendees);
+                updateSelectedOptions();
+              }
+
+              if (data.location) {
+                document.getElementById('location').value = data.location;
+              }
+
+            } catch(e) {
+              console.error('Data processing error:', e);
+              // Восстанавливаем значения по умолчанию
+              document.getElementById('topic').value = '';
+              document.getElementById('location').value = '';
+              window.selectedEmails = new Set();
+              updateSelectedOptions();
             }
+          })
+          .withFailureHandler(error => {
+            console.error('Server error:', error);
           })
           .getSelectedEventData();
       }
@@ -799,31 +852,6 @@
         });
       }    
 
-      function showAlert(message, autoClose = true) {
-        const alert = document.getElementById('customAlert');
-        const messageEl = document.getElementById('customAlertMessage');
-        const okButton = document.getElementById('customAlertOK');
-        
-        if (!alert || !messageEl || !okButton) return;
-        
-        messageEl.textContent = message;
-        alert.style.display = 'flex';
-        
-        okButton.onclick = function() {
-          alert.style.display = 'none';
-          if (autoClose) {
-            google.script.host.close();
-          }
-        };
-        
-        if (autoClose) {
-          setTimeout(() => {
-            alert.style.display = 'none';
-            google.script.host.close();
-          }, 3000);
-        }
-      }
-
       function resetMeetingForm() {
         // Сброс выбранных участников
         window.selectedEmails = new Set();
@@ -843,24 +871,28 @@
       }
 
       function populateForm(data) {
-        // Основные поля
-        document.getElementById('topic').value = data.title || '';
-        
-        // Форматирование даты
-        if (data.startTime) { // Используем startTime вместо time
-          const date = new Date(data.startTime);
-          const offset = date.getTimezoneOffset() * 60000;
-          document.getElementById('meetingDateTime').value = 
-            new Date(date - offset).toISOString().slice(0, 16);
-        }
+        try {
+          console.log('Raw data for populate:', data);
+          
+          // Заполнение локации
+          if (data.location) {
+            document.getElementById('location').value = data.location;
+            console.log('Location populated:', data.location);
+          } else {
+            document.getElementById('location').placeholder = 'Место не указано';
+          }
 
-        // Участники
-        window.selectedEmails = new Set(data.attendees || []);
-        updateSelectedOptions(); // Явный вызов обновления интерфейса
-
-        // Место (если есть соответствующее поле)
-        if (data.location && document.getElementById('location')) {
-          document.getElementById('location').value = data.location;
+          // Проверка участников
+          if (data.attendees) {
+            const validEmails = data.attendees.filter(email => 
+              window.allEmployees.some(e => e.email === email)
+            );
+            console.log('Valid emails:', validEmails);
+            window.selectedEmails = new Set(validEmails);
+            updateSelectedOptions();
+          }
+        } catch(e) {
+          console.error('Populate form error:', e);
         }
       }
 
@@ -917,18 +949,21 @@
           const topic = document.getElementById('topic').value.trim();
           const date = document.getElementById('meetingDateTime').value;
           const attendees = Array.from(window.selectedEmails || []);
+          const location = document.getElementById('location').value.trim();
+
+          // Формируем данные встречи ДО отправки
+          const meetingData = {
+            meetingNumber: window.currentMeetingNumber,
+            topic: topic,
+            attendees: attendees,
+            date: date,
+            location: location
+          };
 
           try {
             if (!topic) throw new Error("Введите тему встречи");
             if (!date) throw new Error("Выберите дату и время");
             if (attendees.length === 0) throw new Error("Добавьте участников");
-
-            const meetingData = {
-              meetingNumber: window.currentMeetingNumber,
-              topic: topic,
-              attendees: attendees,
-              date: date
-            };
 
             google.script.run
               .withSuccessHandler(function(response) {
@@ -938,16 +973,30 @@
                 setTimeout(function() {
                   google.script.host.close();
                 }, 500);
+
+                const payload = {
+                  id: response.id,
+                  number: response.number,
+                  topic: topic,
+                  attendees: attendees,
+                  date: date,
+                  location: location
+                };
+
+                google.script.run
+                  .withSuccessHandler(() => {})
+                  .showRecordDialog(JSON.stringify(payload)); // Передаем meetingData
               })
               .withFailureHandler(function(error) {
-                showAlert("Ошибка: " + error.message);
+                showAlert("Ошибка: " + error.message, false);
                 btn.disabled = false;
                 btn.textContent = 'Сохранить встречу';
                 isSaving = false;
               })
               .createMeeting(meetingData);
+
           } catch (error) {
-            showAlert(error.message);
+            showAlert(error.message, false);
             btn.disabled = false;
             btn.textContent = 'Сохранить встречу';
             isSaving = false;
@@ -986,13 +1035,6 @@
     });
     
   </script>
-
-  <div id="customAlert" class="custom-alert">
-    <div class="custom-alert-content">
-      <div class="custom-alert-message" id="customAlertMessage"></div>
-      <button class="custom-alert-button" id="customAlertOK">OK</button>
-    </div>
-  </div>
 
 </body>
 </html>

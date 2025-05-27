@@ -1,5 +1,4 @@
-// ==== Google meet ====
-// calendar.gs
+//файл: calendar.gs
 
 function getUpcomingMeetings(startDate, endDate) {
   try {
@@ -20,6 +19,7 @@ function getUpcomingMeetings(startDate, endDate) {
     return events.map(e => {
       const creatorEmail = e.getCreators()[0].toLowerCase();
       const organizer = emailMap.get(creatorEmail) || creatorEmail.split('@')[0];
+      
 
       const participants = e.getGuestList()
         .filter(g => g.getGuestStatus() !== CalendarApp.GuestStatus.NO)
@@ -38,7 +38,9 @@ function getUpcomingMeetings(startDate, endDate) {
         organizer: organizer,
         participants: participants
       };
-    });
+    })
+    .filter(e => e.participants.length > 0);
+    
   } catch(e) {
     console.error('Calendar API Error:', e);
     throw new Error('Ошибка загрузки событий календаря');
@@ -49,12 +51,17 @@ function selectEvent(eventId) {
   try {
     const event = getEventById(eventId); // Используйте существующую функцию поиска
     const creatorEmail = event.getCreators()[0];
+    console.log('Calendar Event Data:', {
+      title: event.getTitle(),
+      start: event.getStartTime(),
+      attendees: event.getGuestList().map(g => g.getEmail())
+    });
     const data = {
       title: event.getTitle(),
       startTime: event.getStartTime().toISOString(),
       endTime: event.getEndTime().toISOString(),
       location: event.getLocation(),
-      attendees: [creatorEmail, ...event.getGuestList().map(g => g.getEmail())]
+      attendees: [creatorEmail, ...event.getGuestList().map(g => g.getEmail())] // Все email напрямую
     };
     return data;
   } catch(e) {
@@ -97,9 +104,23 @@ function saveSelectedEventData(data) {
 }
 
 function getSelectedEventData() {
-  const data = PropertiesService.getScriptProperties()
-    .getProperty('SELECTED_EVENT');
-  return data ? JSON.parse(data) : null;
+  try {
+    const data = PropertiesService.getScriptProperties()
+      .getProperty('CALENDAR_EVENT_DATA');
+    
+    // Возвращаем структуру по умолчанию если данных нет
+    return data || JSON.stringify({
+      title: '',
+      startTime: new Date().toISOString(),
+      attendees: [],
+      location: ''
+    });
+    
+  } catch(e) {
+    console.error('Error in getSelectedEventData:', e);
+    // Всегда возвращаем валидный JSON
+    return JSON.stringify({});
+  }
 }
 
 function clearSelectedEventData() {

@@ -1,3 +1,5 @@
+// файл: dialogs.gs
+
 function onOpen() {
   const ui = SpreadsheetApp.getUi();
   ui.createMenu('Протоколы')
@@ -9,18 +11,88 @@ function onOpen() {
 }
 
 function showMeetingDialog() {
+  // Явная очистка данных при открытии не из календаря
+  PropertiesService.getScriptProperties().deleteProperty('CALENDAR_EVENT_DATA');
+
   var html = HtmlService.createHtmlOutputFromFile('meetingForm')
     .setWidth(600)
     .setHeight(650);
   SpreadsheetApp.getUi().showModalDialog(html, 'Новая встреча');
 }
 
-function showRecordDialog(meetingId, meetingNumber) {
-  var html = HtmlService.createHtmlOutputFromFile('recordForm')
-    .setWidth(800)
+function showMeetingDialogWithData(data) {
+  console.log('Received calendar data:', JSON.stringify(data));
+  // Принудительная очистка предыдущих данных
+  PropertiesService.getScriptProperties().deleteProperty('CALENDAR_EVENT_DATA');
+
+  // Явно преобразуем даты в строки
+  const preparedData = {
+    title: data.title,
+    startTime: new Date(data.startTime).toISOString(),
+    attendees: data.attendees || [],
+    location: data.location || ""
+  };
+  
+  PropertiesService.getScriptProperties()
+    .setProperty('CALENDAR_EVENT_DATA', JSON.stringify(preparedData));
+
+  console.log('Saved to properties:', 
+  PropertiesService.getScriptProperties().getProperty('CALENDAR_EVENT_DATA'));
+  // Задержка для гарантии сохранения данных
+  Utilities.sleep(1000);
+  
+  const html = HtmlService.createHtmlOutputFromFile('meetingForm')
+    .setWidth(600)
     .setHeight(650);
-  SpreadsheetApp.getUi().showModalDialog(html, 'Протокол №' + (meetingNumber || ''));
-  PropertiesService.getScriptProperties().setProperty('currentMeetingId', meetingId);
+  
+  SpreadsheetApp.getUi().showModalDialog(html, 'Новая встреча');
+}
+
+function getCachedAttendees() {
+  const props = PropertiesService.getScriptProperties();
+  return JSON.parse(props.getProperty('currentMeetingAttendees') || []);
+}
+
+function saveMeetingAttendees(attendees) {
+  PropertiesService.getScriptProperties()
+    .setProperty('currentMeetingAttendees', JSON.stringify(attendees));
+}
+
+function showRecordDialog(meetingData = '') {
+  const props = PropertiesService.getScriptProperties();
+  
+  try {
+    // Парсим данные встречи
+    const data = typeof meetingData === 'string' 
+      ? JSON.parse(meetingData) 
+      : meetingData;
+
+    // Сохраняем данные в PropertiesService
+    props.setProperties({
+      'currentMeetingId': data.id || '',
+      'currentMeetingNumber': data.number?.toString() || '',
+      'currentMeetingAttendees': JSON.stringify(data.attendees || [])
+    });
+
+    // Открываем диалог
+    const html = HtmlService.createHtmlOutputFromFile('recordForm')
+      .setWidth(800)
+      .setHeight(650);
+    SpreadsheetApp.getUi().showModalDialog(html, 'Записи встречи');
+
+  } catch(e) {
+    console.error('Dialog open error:', e);
+    throw new Error('Ошибка открытия окна записей');
+  }
+}
+
+function getCurrentMeetingData() {
+  const props = PropertiesService.getScriptProperties();
+  return {
+    id: props.getProperty('currentMeetingId'),
+    number: props.getProperty('currentMeetingNumber'),
+    attendees: JSON.parse(props.getProperty('currentMeetingAttendees') || [])
+  };
 }
 
 function showCalendarEventsModal() {

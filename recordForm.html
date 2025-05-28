@@ -306,33 +306,20 @@
     var currentMeetingNumber;  
 
     document.addEventListener('DOMContentLoaded', function() {
-      var isInitialized = false;
-
+      // const isInitialized = false;
+      
       // Устанавливаем заголовок
       const protocolMatch = document.title.match(/\d+/);
       const protocolNumber = protocolMatch ? protocolMatch[0] : 'N/A';
       // document.getElementById('meetingTitle').textContent = ``;
 
-    // Получаем ID встречи
-      google.script.run
-        .withSuccessHandler(function(data) {
-          currentMeetingId = data.id;
-          currentMeetingNumber = data.number;
-          window.meetingAttendees = data.attendees;
-          initForm();
-        })
-        .getCurrentMeetingData();
+      // Инициализируем глобальные данные
+      loadGlobalData();
         
-      // Сначала загружаем сотрудников
-      loadEmployees().then(() => {
-        // Затем загружаем остальные данные
-        return Promise.all([
-          loadRecordTypes(),
-          loadImportanceLevels(),
-          loadPriorityLevels()
-        ]);
-      }).then(() => {
+      // Запускаем загрузку формы
+      initializeForm();
 
+      }).then(() => {
         // Активируем кнопку только после полной загрузки
         const addBtn = document.getElementById('addRecordBtn');
         addBtn.disabled = false;
@@ -347,60 +334,357 @@
         // Назначаем обработчики кнопок
         addBtn.addEventListener('click', addRecord);
         document.getElementById('saveAllBtn').addEventListener('click', saveAllRecords);
-
       }).catch(function(error) {
         console.error('Ошибка загрузки:', error);
         alert('Ошибка загрузки данных: ' + error.message);
       });
-    });
 
-    function initForm() {
-      // document.getElementById('meetingTitle').textContent = 
-      //   `Записи встречи №${currentMeetingNumber}`;
 
-      loadEmployees(currentMeetingId)
-        .then(function(attendees) {
-          // Загружаем только участников встречи
-          window.employees = attendees;
-          // ... остальная инициализация ...
-        })
-        .catch(function(error) {
-          console.error('Ошибка загрузки участников:', error);
+    // Асинхронная функция загрузки глобальных данных
+    async function loadGlobalData() {
+      try {
+        window.employees = await new Promise((resolve, reject) => {
+          google.script.run
+            .withSuccessHandler(resolve)
+            .withFailureHandler(reject)
+            .getEmployees();
         });
+        
+        window.recordTypes = await new Promise((resolve, reject) => {
+          google.script.run
+            .withSuccessHandler(resolve)
+            .withFailureHandler(reject)
+            .getRecordTypes();
+        });
+        
+        window.importanceLevels = await new Promise((resolve, reject) => {
+          google.script.run
+            .withSuccessHandler(resolve)
+            .withFailureHandler(reject)
+            .getImportanceLevels();
+        });
+        
+        window.priorityLevels = await new Promise((resolve, reject) => {
+          google.script.run
+            .withSuccessHandler(resolve)
+            .withFailureHandler(reject)
+            .getPriorityLevels();
+        });
+        
+        console.log('Данные справочников загружены');
+      } catch(e) {
+        console.error('Ошибка загрузки справочников:', e);
+        // Устанавливаем значения по умолчанию
+        window.employees = [];
+        window.recordTypes = [];
+        window.importanceLevels = [];
+        window.priorityLevels = [];
+      }
     }
 
-    function loadEmployees(meetingId) {
-      return new Promise((resolve, reject) => {
-        try {
-          // Сначала проверяем кэш через сервер
+    //   async function loadGlobalData() {
+    //     window.employees = await google.script.run
+    //       .withFailureHandler(e => [])
+    //       .getEmployees();
+        
+    //     window.recordTypes = await google.script.run
+    //       .withFailureHandler(e => [])
+    //       .getRecordTypes();
+          
+    //     // Получаем ID встречи
+    //     google.script.run
+    //       .withSuccessHandler(function(data) {
+    //         currentMeetingId = data.id;
+    //         currentMeetingNumber = data.number;
+    //         window.meetingAttendees = data.attendees;
+    //         initializeForm();
+    //       })
+    //       .getCurrentMeetingData();
+          
+    //     // Сначала загружаем сотрудников
+    //     loadEmployees().then(() => {
+    //       // Затем загружаем остальные данные
+    //       return Promise.all([
+    //         loadRecordTypes(),
+    //         loadImportanceLevels(),
+    //         loadPriorityLevels()
+    //       ]);
+    //     }).then(() => {
+
+    //       // Активируем кнопку только после полной загрузки
+    //       const addBtn = document.getElementById('addRecordBtn');
+    //       addBtn.disabled = false;
+    //       addBtn.textContent = 'Добавить запись';
+          
+    //       // Добавляем первую запись только если это первая инициализация
+    //       if (!isInitialized) {
+    //         addRecord();
+    //         isInitialized = true;
+    //       }
+          
+    //       // Назначаем обработчики кнопок
+    //       addBtn.addEventListener('click', addRecord);
+    //       document.getElementById('saveAllBtn').addEventListener('click', saveAllRecords);
+
+    //     }).catch(function(error) {
+    //       console.error('Ошибка загрузки:', error);
+    //       alert('Ошибка загрузки данных: ' + error.message);
+    //     });
+
+
+    //   }
+    // });
+
+    // function initForm() {
+    //   // document.getElementById('meetingTitle').textContent = 
+    //   //   `Записи встречи №${currentMeetingNumber}`;
+
+    //   loadEmployees(currentMeetingId)
+    //     .then(function(attendees) {
+    //       // Загружаем только участников встречи
+    //       window.employees = attendees;
+    //       // ... остальная инициализация ...
+    //     })
+    //     .catch(function(error) {
+    //       console.error('Ошибка загрузки участников:', error);
+    //     });
+    // }
+
+    // Асинхронная функция инициализации формы
+    // async function initializeForm() {
+    //   try {
+    //     const meetingId = await new Promise((resolve, reject) => {
+    //       google.script.run
+    //         .withSuccessHandler(data => resolve(data.id))
+    //         .withFailureHandler(reject)
+    //         .getCurrentMeetingData();
+    //     });
+        
+    //     const recordsData = await new Promise((resolve, reject) => {
+    //       google.script.run
+    //         .withSuccessHandler(resolve)
+    //         .withFailureHandler(reject)
+    //         .getRecordsByMeetingId(meetingId);
+    //     });
+        
+    //     renderExistingRecords(recordsData);
+    //     initControls();
+        
+    //   } catch(e) {
+    //     console.error('Ошибка загрузки данных встречи:', e);
+    //     showAlert('Не удалось загрузить записи встречи', false);
+    //   }
+    // }
+
+    async function initializeForm() {
+      try {
+        const meetingId = await getCurrentMeetingId();
+        
+        const recordsData = await new Promise((resolve, reject) => {
           google.script.run
-            .withSuccessHandler(cachedAttendees => {
-              if (cachedAttendees.length > 0) {
-                console.log('Using cached attendees:', cachedAttendees);
-                resolve(cachedAttendees);
-                return;
-              }
-              
-              // Если кэш пуст, загружаем из таблицы
-              google.script.run
-                .withSuccessHandler(attendees => {
-                  // Сохраняем в кэш
-                  google.script.run
-                    .saveMeetingAttendees(attendees);
-                  resolve(attendees);
-                })
-                .withFailureHandler(reject)
-                .getMeetingAttendees(meetingId);
-            })
+            .withSuccessHandler(resolve)
             .withFailureHandler(reject)
-            .getCachedAttendees();
+            .getRecordsByMeetingId(meetingId);
+        });
+        
+        renderExistingRecords(recordsData);
+        initControls();
+        
+      } catch(e) {
+        console.error('Ошибка загрузки данных встречи:', e);
+        showAlert('Не удалось загрузить записи встречи: ' + e.message, false);
+      }
+    }
+
+    function initControls() {
+      // Инициализация кнопок и других элементов
+      const addBtn = document.getElementById('addRecordBtn');
+      if (addBtn) {
+        addBtn.disabled = false;
+        addBtn.textContent = 'Добавить запись';
+        addBtn.addEventListener('click', addRecord);
+      }
+      
+      const saveBtn = document.getElementById('saveAllBtn');
+      if (saveBtn) {
+        saveBtn.addEventListener('click', saveAllRecords);
+      }
+    }
+
+    // async function initializeForm() {
+    //   try {
+    //     const meetingId = await getCurrentMeetingId();
+        
+    //     // Загружаем данные встречи и записи параллельно
+    //     const [meetingData, recordsData] = await Promise.all([
+    //       google.script.run
+    //         .withFailureHandler(e => { throw e })
+    //         .getMeetingById(meetingId),
             
-        } catch (e) {
-          console.error('Attendees load error:', e);
-          reject(e);
-        }
+    //       google.script.run
+    //         .withFailureHandler(e => { throw e })
+    //         .getRecordsByMeetingId(meetingId)
+    //     ]);
+
+    //     // Рендерим основные данные встречи
+    //     renderMeetingHeader(meetingData);
+        
+    //     // Рендерим существующие записи
+    //     renderExistingRecords(recordsData);
+        
+    //     // Инициализируем контролы
+    //     initControls();
+
+    //   } catch(e) {
+    //     console.error('Ошибка инициализации:', e);
+    //     showAlert('Не удалось загрузить данные', false);
+    //   }
+    // }
+
+    // Добавляем в client-код
+    function getCurrentMeetingId() {
+      return new Promise((resolve, reject) => {
+        google.script.run
+          .withSuccessHandler(data => {
+            if (data && data.id) {
+              resolve(data.id);
+            } else {
+              reject(new Error('ID встречи не получен'));
+            }
+          })
+          .withFailureHandler(reject)
+          .getCurrentMeetingData();
       });
     }
+
+    // Серверная функция (должна быть в dialogs.gs)
+    function getCurrentMeetingData() {
+      const props = PropertiesService.getScriptProperties();
+      return {
+        id: props.getProperty('currentMeetingId'),
+        number: props.getProperty('currentMeetingNumber')
+      };
+    }
+
+    function showAlert(message, autoClose = true) {
+      try {
+        // Проверяем существование элементов алерта
+        const alertEl = document.getElementById('customAlert');
+        const messageEl = document.getElementById('customAlertMessage');
+        const okButton = document.getElementById('customAlertOK');
+        
+        if (!alertEl || !messageEl || !okButton) {
+          // Резервный вариант
+          alert(message);
+          if (autoClose) {
+            setTimeout(() => google.script.host.close(), 3000);
+          }
+          return;
+        }
+        
+        // Настраиваем алерт
+        messageEl.textContent = message;
+        alertEl.style.display = 'flex';
+        
+        okButton.onclick = () => {
+          alertEl.style.display = 'none';
+          if (autoClose) google.script.host.close();
+        };
+        
+        if (autoClose) {
+          setTimeout(() => {
+            alertEl.style.display = 'none';
+            google.script.host.close();
+          }, 3000);
+        }
+      } catch (e) {
+        console.error('Ошибка в showAlert:', e);
+        alert(message); // Самый простой fallback
+      }
+    }
+
+    // Функция рендеринга существующих записей
+    function renderExistingRecords(records) {
+      const recordsContainer = document.getElementById('recordsContainer');
+      recordsContainer.innerHTML = ''; // Очищаем контейнер
+
+      records.forEach(record => {
+        const recordData = prepareRecordData();
+        const template = document.getElementById('recordTemplate');
+        
+        // Модифицируем setupRecordElements для заполнения существующих данных
+        const { accordion } = setupRecordElements(template, {
+          ...recordData,
+          existingRecord: record // Передаем данные существующей записи
+        });
+
+        // Заполняем данные из записи
+        fillRecordElements(accordion, record);
+        
+        recordsContainer.appendChild(accordion);
+      });
+    }
+
+    // Функция заполнения данных записи
+    function fillRecordElements(container, record) {
+      // Текст записи
+      const textEditor = container.querySelector('.text-editor');
+      if (textEditor) textEditor.innerHTML = record.text;
+
+      // Срок выполнения
+      const dueDate = container.querySelector('.due-date');
+      if (dueDate) {
+        dueDate.value = record.dueDate.split('.').reverse().join('-');
+      }
+
+      // Ответственные
+      const responsibleSelect = container.querySelector('.responsible');
+      if (responsibleSelect) {
+        Array.from(responsibleSelect.options).forEach(option => {
+          option.selected = record.responsible.some(r => r.id === option.value);
+        });
+      }
+
+      // Статусы
+      const importanceSelect = container.querySelector('.importance');
+      if (importanceSelect) importanceSelect.value = record.status.importance;
+      
+      const prioritySelect = container.querySelector('.priority');
+      if (prioritySelect) prioritySelect.value = record.status.priority;
+    }
+
+    // function loadEmployees(meetingId) {
+    //   return new Promise((resolve, reject) => {
+    //     try {
+    //       // Сначала проверяем кэш через сервер
+    //       google.script.run
+    //         .withSuccessHandler(cachedAttendees => {
+    //           if (cachedAttendees.length > 0) {
+    //             console.log('Using cached attendees:', cachedAttendees);
+    //             resolve(cachedAttendees);
+    //             return;
+    //           }
+              
+    //           // Если кэш пуст, загружаем из таблицы
+    //           google.script.run
+    //             .withSuccessHandler(attendees => {
+    //               // Сохраняем в кэш
+    //               google.script.run
+    //                 .saveMeetingAttendees(attendees);
+    //               resolve(attendees);
+    //             })
+    //             .withFailureHandler(reject)
+    //             .getMeetingAttendees(meetingId);
+    //         })
+    //         .withFailureHandler(reject)
+    //         .getCachedAttendees();
+            
+    //     } catch (e) {
+    //       console.error('Attendees load error:', e);
+    //       reject(e);
+    //     }
+    //   });
+    // }
 
     function loadRecordTypes() {
       return new Promise(function(resolve) {
@@ -474,14 +758,27 @@
       }
     }
 
+    // function prepareRecordData() {
+    //   const recordNumber = document.querySelectorAll('.accordion').length + 1;
+    //   return {
+    //     recordNumber,
+    //     employees,
+    //     recordTypes,
+    //     importanceLevels,
+    //     priorityLevels
+    //   };
+    // }
+
+    // Обновленная функция prepareRecordData
     function prepareRecordData() {
       const recordNumber = document.querySelectorAll('.accordion').length + 1;
       return {
         recordNumber,
-        employees,
-        recordTypes,
-        importanceLevels,
-        priorityLevels
+        employees: window.employees || [],
+        recordTypes: window.recordTypes || [],
+        importanceLevels: window.importanceLevels || [],
+        priorityLevels: window.priorityLevels || [],
+        existingRecord: null
       };
     }
 
@@ -518,7 +815,21 @@
           `;
           responsibleSelect.add(option);
         });
-      }       
+      } 
+      // Заполнение данных из существующей записи
+      if (data.existingRecord) {
+        const record = data.existingRecord;
+        
+        // Заполняем скрытые поля
+        accordion.dataset.recordId = record.id;
+        
+        // Устанавливаем выбранные значения
+        const typeSelect = accordion.querySelector('.record-type');
+        if (typeSelect) typeSelect.value = record.type;
+
+        // ... аналогично для других полей ...
+      }
+
       return { accordion, recordNumber: data.recordNumber  };
     }
 

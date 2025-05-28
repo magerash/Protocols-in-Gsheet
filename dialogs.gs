@@ -58,7 +58,7 @@ function saveMeetingAttendees(attendees) {
     .setProperty('currentMeetingAttendees', JSON.stringify(attendees));
 }
 
-function showRecordDialog(meetingData = '') {
+function showRecordDialog(meetingData = '179') {
   const props = PropertiesService.getScriptProperties();
   
   try {

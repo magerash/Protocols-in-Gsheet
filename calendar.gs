@@ -19,6 +19,7 @@ function getUpcomingMeetings(startDate, endDate) {
     return events.map(e => {
       const creatorEmail = e.getCreators()[0].toLowerCase();
       const organizer = emailMap.get(creatorEmail) || creatorEmail.split('@')[0];
+      
 
       const participants = e.getGuestList()
         .filter(g => g.getGuestStatus() !== CalendarApp.GuestStatus.NO)
@@ -37,7 +38,9 @@ function getUpcomingMeetings(startDate, endDate) {
         organizer: organizer,
         participants: participants
       };
-    });
+    })
+    .filter(e => e.participants.length > 0);
+    
   } catch(e) {
     console.error('Calendar API Error:', e);
     throw new Error('Ошибка загрузки событий календаря');

@@ -640,7 +640,7 @@ function getEmployeesByID(employeeIds) {
 }
 
 function testEmployeesByID() {
-  // Передаем ID как массив
+  // Передаем ID как массив /
   const ids = [
     '9032088e-b7f4-4414-87b7-0e29d23acdcb', 
     'bc5bbfd1-bbc8-457b-96fd-c5017df60862'

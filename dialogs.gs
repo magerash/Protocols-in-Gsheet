@@ -43,7 +43,6 @@ function showMeetingDialogWithData(data) {
   
   const html = HtmlService.createHtmlOutputFromFile('meetingForm')
     .setWidth(600)
-
     .setHeight(650);
   
   SpreadsheetApp.getUi().showModalDialog(html, 'Новая встреча');
@@ -95,7 +94,6 @@ function getCurrentMeetingData() {
     number: props.getProperty('currentMeetingNumber'),
     attendees: JSON.parse(props.getProperty('currentMeetingAttendees') || [])
   };
-
 }
 
 function showCalendarEventsModal() {

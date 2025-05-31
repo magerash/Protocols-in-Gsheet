@@ -265,6 +265,7 @@ function createMeeting(meetingData) {
       meetingData.location
     ]);
 
+
     const result = { 
       id: meetingId, 
       number: meetingData.meetingNumber,
@@ -276,12 +277,12 @@ function createMeeting(meetingData) {
         : 'Встреча успешно сохранена'      
     };
 
-
     // Кэшируем данные участников
     const props = PropertiesService.getScriptProperties();
     props.setProperty('currentMeetingId', meetingId);
     props.setProperty('currentMeetingNumber', meetingData.meetingNumber.toString());
     props.setProperty('currentMeetingAttendees', JSON.stringify(attendeeIds));
+
 
     Logger.log('[createMeeting] Успешно создано. Результат: %s', JSON.stringify(result));
     // Очищаем кэш календарных данных
@@ -648,5 +649,4 @@ function testEmployeesByID() {
   const employees = getEmployeesByID(ids);
   console.log('Found employees:', employees.length);
   console.log(JSON.stringify(employees, null, 2));
-
 }

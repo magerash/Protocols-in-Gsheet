@@ -951,7 +951,6 @@
           const attendees = Array.from(window.selectedEmails || []);
           const location = document.getElementById('location').value.trim();
 
-
           // Формируем данные встречи ДО отправки
           const meetingData = {
             meetingNumber: window.currentMeetingNumber,
@@ -959,7 +958,7 @@
             attendees: attendees,
             date: date,
             location: location
-
+          };
 
           try {
             if (!topic) throw new Error("Введите тему встречи");
@@ -975,7 +974,6 @@
                   google.script.host.close();
                 }, 500);
 
-
                 const payload = {
                   id: response.id,
                   number: response.number,
@@ -988,7 +986,6 @@
                 google.script.run
                   .withSuccessHandler(() => {})
                   .showRecordDialog(JSON.stringify(payload)); // Передаем meetingData
-
               })
               .withFailureHandler(function(error) {
                 showAlert("Ошибка: " + error.message, false);
@@ -996,11 +993,6 @@
                 btn.textContent = 'Сохранить встречу';
                 isSaving = false;
               })
-              // .createMeeting(meetingData).then(function(response) {
-              //   if (response && response.id) { // Добавить проверку
-              //     google.script.host.close();
-              //   }
-              // });
               .createMeeting(meetingData);
 
           } catch (error) {

@@ -1,3 +1,5 @@
+<!-- файл: recordForm -->
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -279,7 +281,7 @@
 
       // Устанавливаем заголовок
       const protocolNumber = document.title.match(/\d+/)[0]; // Извлекаем номер из title
-      document.getElementById('meetingTitle').textContent = `Протокол №${protocolNumber}`;
+      document.getElementById('meetingTitle').textContent = `Записи встречи`;
 
       // Сначала загружаем сотрудников
       loadEmployees().then(() => {

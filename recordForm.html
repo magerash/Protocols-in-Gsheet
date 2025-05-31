@@ -24,12 +24,14 @@
       margin-bottom: 16px;
       background-color: #f8f9fa;
     }
+
     .record-header {
       display: flex;
       justify-content: space-between;
-      align-items: center;
+      /* align-items: center; */
       margin-bottom: 12px;
     }
+
     .record-title {
       font-size: 16px;
       font-weight: 500;
@@ -178,17 +180,6 @@
       transform: rotate(180deg);
     }
 
-    .record-header {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 12px;
-    }
-
-    /* Улучшенные стили для формы */
-    .record {
-      padding: 0;
-      font-size: 0;
-    }
 
     .text-editor {
       min-height: 100px;
@@ -199,17 +190,14 @@
       margin-right: 0;
       border-radius: 4px;
     }
-    .employee-email {
-      color: #777;
-      font-size: 0.85em;
-      font-weight: normal;
-    }
+
     /* Добавляем новый контейнер */
     .record-container {
       padding: 0 10px; /* Отступы слева и справа */
       border: none; /* Убираем рамки */
       margin-top: 10px;
     }
+
     .custom-alert {
       display: none;
       position: fixed;
@@ -253,6 +241,82 @@
 
     .custom-alert-button:hover {
       background-color: #1765cc;
+    }
+
+    .responsible-select {
+      width: 100%;
+      border: 1px solid #dadce0;
+      border-radius: 4px;
+      padding: 8px;
+      max-height: 150px;
+      overflow-y: auto;
+      background-color: white;
+    }
+
+    .employee-name {
+      flex-grow: 1;
+      display: block; /* Добавьте это */
+      color: #202124; /* Явно задаем цвет текста */
+      font-weight: 500; /* Делаем текст жирным */
+    }
+    .employee-email {
+      color: #5f6368;
+      font-size: 0.85em;
+      margin-left: 10px;
+      text-align: right;
+      display: block; /* Добавьте это */
+    }
+
+    .no-attendees, .error, .warning {
+      padding: 12px;
+      text-align: center;
+      color: #5f6368;
+      font-style: italic;
+    }
+
+    .error {
+      color: #d93025;
+    }
+
+    .warning {
+      color: #f9ab00;
+    }    
+
+    .responsible-container {
+      display: block !important; /* Гарантируем отображение */
+      border: 1px solid #dadce0;
+      border-radius: 4px;
+      padding: 8px;
+      background-color: white;
+      min-height: 100px;
+    }
+
+    .options-container {
+      max-height: 150px;
+      overflow-y: auto;
+    }
+
+    .employee-option {
+      padding: 8px 12px;
+      cursor: pointer;
+      display: flex; /* Убедитесь, что это есть */
+      justify-content: space-between;
+      border-bottom: 1px solid #f0f0f0;
+      transition: background-color 0.2s;
+      color: #202124; /* Явно задаем цвет текста */
+    }
+
+    .employee-option:last-child {
+      border-bottom: none;
+    }
+
+    .employee-option:hover {
+      background-color: #f5f5f5;
+    }
+
+    .employee-option.selected {
+      background-color: #e8f0fe;
+      font-weight: 500;
     }
 
   </style>
@@ -311,10 +375,8 @@
           
           <div class="input-container">
             <label class="input-label">Ответственные</label>
-            <select class="select-field responsible" multiple size="3">
-              <option value="" disabled selected>Выберите ответственных</option>
-            </select>
-          </div>
+            <div class="responsible-container"></div>
+          </div>          
 
           <div class="grid">
             <div class="input-container">
@@ -559,6 +621,8 @@
       // // Функция заполнения данных записи
 
       function fillRecordElements(container, record) {
+        console.log("Filling record elements for:", record);        
+
         // Текст записи
         const textEditor = container.querySelector('.text-editor');
         if (textEditor) textEditor.innerHTML = record.text;
@@ -569,38 +633,38 @@
           dueDate.value = record.dueDate.split('.').reverse().join('-');
         }
 
-        // Ответственные - ВАЖНОЕ ИЗМЕНЕНИЕ!
-        const responsibleSelect = container.querySelector('.responsible');
-        if (responsibleSelect) {
-          // Очищаем текущие опции
-          responsibleSelect.innerHTML = '';
+        // Ответственные
+        const responsibleContainer = container.querySelector('.responsible-container');
+        if (responsibleContainer) {
+          // Удаляем ручное добавление элементов
+          responsibleContainer.innerHTML = '';
           
-          // Добавляем участников встречи
-          window.meetingAttendees.forEach(attendee => {
-            const option = document.createElement('option');
-            option.value = attendee.id;
-            
-            // Форматируем имя как "И. Иванов"
-            const firstNameInitial = attendee.firstName ? attendee.firstName[0] + '.' : '';
-            const formattedName = `${firstNameInitial} ${attendee.lastName}`;
-            
-            option.textContent = `${formattedName} (${attendee.email})`;
-            
-            // Отмечаем выбранных
-            if (record.responsible && record.responsible.includes(attendee.id)) {
-              option.selected = true;
-            }
-            
-            responsibleSelect.appendChild(option);
-          });
-        }
+          // Используем функцию инициализации
+          initResponsibleContainer(
+            responsibleContainer,
+            window.meetingAttendees,
+            record.responsible || []
+          );
+        }        
+              
         // Статусы
         const importanceSelect = container.querySelector('.importance');
         if (importanceSelect) importanceSelect.value = record.status.importance;
         
         const prioritySelect = container.querySelector('.priority');
         if (prioritySelect) prioritySelect.value = record.status.priority;
-      }        
+      }      
+
+      function updateSelectedResponsible(container) {
+        const selectedOptions = container.querySelectorAll('.employee-option.selected');
+        const hiddenInput = container.querySelector('input.responsible-hidden');
+        
+        const selectedIds = Array.from(selectedOptions).map(option => 
+          option.dataset.id
+        );
+        
+        hiddenInput.value = selectedIds.join(',');
+      }  
 
       function loadRecordTypes() {
         return new Promise(function(resolve) {
@@ -646,7 +710,74 @@
           createNewRecord(btn, originalText);
         }, 50);
       }
-      
+
+      function initResponsibleContainer(container, attendees, selectedIds = []) {
+        // Очищаем контейнер
+        container.innerHTML = '';
+        
+        // Проверяем наличие данных
+        if (!attendees || attendees.length === 0) {
+          container.innerHTML = '<div class="no-attendees">Нет данных об участниках</div>';
+          return;
+        }
+        
+        // Создаем скрытое поле
+        const hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.className = 'responsible-hidden';
+        container.appendChild(hiddenInput);
+        
+        // Создаем контейнер для опций
+        const optionsContainer = document.createElement('div');
+        optionsContainer.className = 'options-container';
+        container.appendChild(optionsContainer);
+        
+        // Добавляем участников
+        attendees.forEach(attendee => {
+          const option = document.createElement('div');
+          option.className = 'employee-option';
+          option.dataset.id = attendee.id;
+          
+          // Форматируем имя
+          const firstNameInitial = attendee.firstName ? 
+                attendee.firstName[0].toUpperCase() + '.' : '';
+          const formattedName = `${firstNameInitial} ${attendee.lastName}`;
+          
+          option.innerHTML = `
+            <span class="employee-name">${formattedName}</span>
+            <span class="employee-email">${attendee.email}</span>
+          `;
+          
+          // Проверяем выбор
+          if (selectedIds.includes(attendee.id)) {
+            option.classList.add('selected');
+          }
+          
+          // Обработчик клика
+          option.addEventListener('click', function() {
+            this.classList.toggle('selected');
+            updateResponsibleHiddenInput(container);
+          });
+          
+          optionsContainer.appendChild(option);
+        });
+        
+        // Обновляем скрытое поле
+        updateResponsibleHiddenInput(container);
+      }      
+
+      function updateResponsibleHiddenInput(container) {
+        const selectedOptions = container.querySelectorAll('.employee-option.selected');
+        const hiddenInput = container.querySelector('.responsible-hidden');
+        
+        if (!hiddenInput) return;
+        
+        const selectedIds = Array.from(selectedOptions).map(opt => opt.dataset.id);
+        hiddenInput.value = selectedIds.join(',');
+        
+        console.log("Обновлены ответственные:", selectedIds);
+      }
+
       function createNewRecord(btn, originalText) {
         try {
           const template = document.getElementById('recordTemplate');
@@ -655,22 +786,10 @@
           const recordData = prepareRecordData();
           const { accordion, recordNumber } = setupRecordElements(template, recordData);
           
-          // Добавьте этот блок для инициализации списка ответственных
-          const responsibleSelect = accordion.querySelector('.responsible');
-          if (responsibleSelect && window.meetingAttendees) {
-            responsibleSelect.innerHTML = '';
-            
-            window.meetingAttendees.forEach(attendee => {
-              const option = document.createElement('option');
-              option.value = attendee.id;
-              
-              // Форматируем имя как "И. Иванов"
-              const firstNameInitial = attendee.firstName ? attendee.firstName[0] + '.' : '';
-              const formattedName = `${firstNameInitial} ${attendee.lastName}`;
-              
-              option.textContent = `${formattedName} (${attendee.email})`;
-              responsibleSelect.appendChild(option);
-            });
+          // Инициализация списка ответственных
+          const responsibleContainer = accordion.querySelector('.responsible-container');
+          if (responsibleContainer && window.meetingAttendees) {
+            initResponsibleContainer(responsibleContainer, window.meetingAttendees);
           }
           
           setupRecordEventHandlers(accordion, recordNumber);
@@ -997,9 +1116,15 @@
               formattedDate = `${day}-${month}-${year}`; // Формат DD-MM-YYYY
             }
 
-            const responsible = Array.from(recordElement.querySelector('.responsible').selectedOptions)
-              .map(option => option.value);
-            
+            // const responsible = Array.from(recordElement.querySelector('.responsible').selectedOptions)
+            //   .map(option => option.value);
+            // const responsible = getSelectedResponsible(); 
+
+            // Получаем ответственных из скрытого поля
+            const responsibleInput = recordElement.querySelector('input.responsible-hidden');
+            const responsible = responsibleInput ? 
+                  responsibleInput.value.split(',').filter(id => id) : [];  
+
             // Для типов "Факт" и "Решение" не проверяем важность и приоритет
             const shouldCheckPriority = !['Факт', 'Решение'].includes(type);
             const importance = shouldCheckPriority ? recordElement.querySelector('.importance').value : '';
@@ -1038,22 +1163,6 @@
           return;
         }
 
-        // google.script.run
-        //   .withSuccessHandler(() => {
-        //     alert(`Успешно сохранено ${recordsData.length} записей`);
-        //     saveBtn.disabled = false;
-        //     addBtn.disabled = false;
-        //     saveBtn.textContent = originalText;
-        //     google.script.host.close();
-        //   })
-        //   .withFailureHandler(error => {
-        //     alert(`Ошибка сохранения: ${error.message}`);
-        //     saveBtn.disabled = false;
-        //     addBtn.disabled = false;
-        //     saveBtn.textContent = originalText;
-        //   })
-        //   .createRecords(recordsData);
-
         google.script.run
           .withSuccessHandler(() => {
             showNotification(
@@ -1081,6 +1190,50 @@
           .createRecords(recordsData);
 
       }
+
+      // Функция инициализации списка ответственных
+      function initResponsibleSelect(container, employees, selectedIds = []) {
+        container.innerHTML = '';
+        
+        employees.forEach(employee => {
+          const option = document.createElement('div');
+          option.className = 'employee-option';
+          option.dataset.id = employee.id;
+          
+          if (selectedIds.includes(employee.id)) {
+            option.classList.add('selected');
+          }
+          
+          // Форматируем имя как "И. Иванов"
+          const firstNameInitial = employee.firstName ? 
+                employee.firstName[0].toUpperCase() + '.' : '';
+          const formattedName = `${firstNameInitial} ${employee.lastName}`;
+          
+          option.innerHTML = `
+            <span class="employee-name">${formattedName}</span>
+            <span class="employee-email">${employee.email}</span>
+          `;
+          
+          option.addEventListener('click', function() {
+            this.classList.toggle('selected');
+            updateResponsibleInput();
+          });
+          
+          container.appendChild(option);
+        });
+      }
+
+      // Функция обновления скрытого поля
+      function updateResponsibleInput() {
+        const container = document.getElementById('responsibleContainer');
+        const hiddenInput = document.querySelector('input[name="responsible"]');
+        const selected = container.querySelectorAll('.employee-option.selected');
+        
+        hiddenInput.value = Array.from(selected)
+          .map(opt => opt.dataset.id)
+          .join(',');
+      }
+
 
       // Запускаем инициализацию
       try {

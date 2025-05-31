@@ -62,7 +62,7 @@ function getColumnIndexes(headers) {
     name: headers.findIndex(h => h.trim() === 'Имя'),
     surname: headers.findIndex(h => h.trim() === 'Фамилия'),
     email: headers.findIndex(h => h.trim() === 'Почта'),
-    id: headers.findIndex(h => h.trim() === 'Row ID'),
+    id: headers.findIndex(h => h.trim() === 'ID сотрудника'),
     org: headers.findIndex(h => h.trim() === 'Организация'),
     dept: headers.findIndex(h => h.trim() === 'Подразделение'),
     unit: headers.findIndex(h => h.trim() === 'Отдел')
@@ -265,6 +265,7 @@ function createMeeting(meetingData) {
       meetingData.location
     ]);
 
+
     const result = { 
       id: meetingId, 
       number: meetingData.meetingNumber,
@@ -275,9 +276,13 @@ function createMeeting(meetingData) {
         ? `Встреча сохранена, но не найдены: ${invalidEmails.join(', ')}`
         : 'Встреча успешно сохранена'      
     };
+
     // Кэшируем данные участников
-    PropertiesService.getScriptProperties()
-      .setProperty('currentMeetingAttendees', JSON.stringify(attendeeIds));
+    const props = PropertiesService.getScriptProperties();
+    props.setProperty('currentMeetingId', meetingId);
+    props.setProperty('currentMeetingNumber', meetingData.meetingNumber.toString());
+    props.setProperty('currentMeetingAttendees', JSON.stringify(attendeeIds));
+
 
     Logger.log('[createMeeting] Успешно создано. Результат: %s', JSON.stringify(result));
     // Очищаем кэш календарных данных
@@ -331,55 +336,12 @@ function createRecords(recordsData) {
   }
 }
 
-function getMeetingAttendees(meetingId) {
-  Logger.log('[getMeetingAttendees] Начало обработки для meetingId: %s', meetingId);
-  
-  try {
-    const sheet = SpreadsheetApp.getActive().getSheetByName('Встречи');
-    const data = sheet.getDataRange().getValues();
-    const header = data[0];
-    
-    const ID_COL = header.indexOf('ID встречи');
-    const ATTENDEES_COL = header.indexOf('ID участников');
-    
-    Logger.log('[getMeetingAttendees] Индексы колонок: ID_COL=%s, ATTENDEES_COL=%s', ID_COL, ATTENDEES_COL);
-    
-    const meeting = data.find(row => row[ID_COL] === meetingId); // Исправить 79 на meetingId
-    if (!meeting) {
-      Logger.log('[getMeetingAttendees] Встреча не найдена');
-      return [];
-    }
-    
-    const attendeeIds = meeting[ATTENDEES_COL].split(', ');
-    Logger.log('[getMeetingAttendees] Найдено ID участников: %s', attendeeIds.join(', '));
-    
-    const employees = getEmployees();
-    Logger.log('[getMeetingAttendees] Получено сотрудников: %s', employees.length);
-    
-    const result = employees
-      .filter(e => attendeeIds.includes(Number(e.id)))
-      .map(e => ({
-        email: e.email,
-        name: `${e.firstName} ${e.lastName}`.trim(),
-        id: String(e.id), // Гарантируем строковый формат
-        firstName: e.firstName || 'Имя не указано', // Запасные значения
-        lastName: e.lastName || 'Фамилия не указана'        
-      }));
-    
-    Logger.log('[getMeetingAttendees] Результат: %s записей', result.length);
-    return result;
-    
-  } catch (e) {
-    Logger.log('[getMeetingAttendees] Ошибка: %s', e.toString());
-    throw e;
-  }
-}
-
 function getCurrentMeetingData() {
   const props = PropertiesService.getScriptProperties();
   return {
     id: props.getProperty('currentMeetingId'),
-    number: props.getProperty('currentMeetingNumber')
+    number: props.getProperty('currentMeetingNumber'),
+    attendees: props.getProperty('currentMeetingAttendees')
   };
 }
 
@@ -391,9 +353,7 @@ function getCurrentMeetingData() {
 function getMeetingById(meetingId) {
   const cache = CacheService.getScriptCache();
   const cacheKey = `meeting_${meetingId}`;
- 
-  // Проверка кэша
-  const cachedData = cache.get(cacheKey);
+  const cachedData = cache.get(cacheKey); // Проверка кэша
   if (cachedData) {
     console.log('Данные из кэша:', cachedData);
     return JSON.parse(cachedData);
@@ -408,10 +368,10 @@ function getMeetingById(meetingId) {
   // Нормализуем заголовки
   const headers = data[0].map(h => h.trim().toLowerCase()); // Все в нижний регистр
 
-  // Получаем индексы с правильными названиями
+  // Получаем индексы с защитой от -1
   const getHeaderIndex = (name) => {
-    const normalized = name.trim().toLowerCase();
-    return headers.findIndex(h => h === normalized);
+    const idx = headers.indexOf(name.toLowerCase());
+    return idx >= 0 ? idx : null;
   };
 
   const idIndex = getHeaderIndex('ID встречи');
@@ -463,7 +423,9 @@ function getMeetingById(meetingId) {
     topic: meeting[topicIndex],
     location: meeting[locationIndex],
     attendees: {
-      ids: meeting[attendeesIdIndex]?.split(',').map(id => id.trim()) || [],
+      ids: meeting[attendeesIdIndex] 
+        ? meeting[attendeesIdIndex].toString().split(',').map(id => id.trim()) 
+        : [],
       displayNames: meeting[attendeesIndex]?.split(',').map(e => e.trim()) || []
     },
     meta: {
@@ -487,7 +449,7 @@ function getMeetingById(meetingId) {
 }
 
 function testGetMeeting() {
-  getMeetingById('ae76e9b4-368d-4c85-91a6-30dd665ded4f');
+  getMeetingById('783237e5-e024-4f79-b2a0-0e2b55f8a7d4');
 }
 
 /**
@@ -496,122 +458,195 @@ function testGetMeeting() {
  * @returns {Array} - Массив объектов записей
  */
 function getRecordsByMeetingId(meetingId) {
-  console.log('Начало обработки для meetingId:', meetingId);
-  const cache = CacheService.getScriptCache();
-  const cacheKey = `records_${meetingId}`;
-  
-  // Проверка кэша
-  const cachedData = cache.get(cacheKey);
-  if (cachedData) {
-    return JSON.parse(cachedData);
-  }
-
-  const sheet = SpreadsheetApp.getActive().getSheetByName('Записи');
-  if (!sheet) {
-    console.error('Лист "Записи" не найден');
-    throw new Error('Лист записей отсутствует');
-  }
-  const data = sheet.getDataRange().getValues();
-  console.log('Всего записей в листе:', data.length);
-  const headers = data[0].map(h => h.toLowerCase().trim());
-  console.log('Заголовки:', headers);
-
-  const meetingIdIndex = headers.indexOf('id встречи');
-  console.log('Индекс ID встречи:', meetingIdIndex);
-
-  const filtered = data.filter(row => 
-    row[meetingIdIndex]?.toString().trim() === meetingId
-  );
-  console.log('Найдено записей:', filtered.length);
-
-  const parseDate = (dateValue) => {
-    try {
-      // Если значение уже является объектом Date
-      if (dateValue instanceof Date) {
-        return dateValue;
-      }
-      
-      // Если это строка формата DD-MM-YYYY
-      if (typeof dateValue === 'string') {
-        const [day, month, year] = dateValue.split('-');
-        return new Date(year, month-1, day);
-      }
-      
-      // Для других случаев (timestamp, etc)
-      return new Date(dateValue);
-    } catch(e) {
-      console.error('Ошибка парсинга даты:', e);
-      return new Date(); // Возвращаем текущую дату как fallback
+  try {
+    console.log('Начало обработки для meetingId:', meetingId);
+    const cache = CacheService.getScriptCache();
+    const cacheKey = `records_${meetingId}`;
+    
+    // Проверка кэша
+    const cachedData = cache.get(cacheKey);
+    if (cachedData) {
+      return JSON.parse(cachedData);
     }
-  };
 
-  // Проверка индексов колонок
-  const getHeaderIndex = (name) => {
-    const index = headers.indexOf(name.toLowerCase().trim());
-    if (index === -1) throw new Error(`Колонка "${name}" не найдена`);
-    return index;
-  };
+    const sheet = SpreadsheetApp.getActive().getSheetByName('Записи');
+    if (!sheet) {
+      console.error('Лист "Записи" не найден');
+      throw new Error('Лист записей отсутствует');
+    }
+    const data = sheet.getDataRange().getValues();
+    console.log('Всего записей в листе:', data.length);
+    const headers = data[0].map(h => h.toLowerCase().trim());
+    console.log('Заголовки:', headers);
 
-  const recordIdIndex = getHeaderIndex('ID записи');
-  const typeIndex = getHeaderIndex('Запись');
-  const textIndex = getHeaderIndex('Текст записи');
-  const dateIndex = getHeaderIndex('Срок');
-  const responsibleIndex = getHeaderIndex('Ответственные ID'); 
-  const importanceIndex = getHeaderIndex('Значимость');
-  const priorityIndex = getHeaderIndex('Приоритет');
-  const completedIndex = getHeaderIndex('Выполнено');
+    const meetingIdIndex = headers.indexOf('id встречи');
+    console.log('Индекс ID встречи:', meetingIdIndex);
 
-  const records = filtered.map((row, idx) => {
-    console.log(`Обработка строки ${idx + 1}:`, JSON.stringify(row));
-    // Логирование сырых данных даты
-    const rawDate = row[dateIndex];
-    console.log('Тип данных даты:', typeof rawDate);
-    console.log('Значение даты:', rawDate);
+    const filtered = data.filter(row => 
+      row[meetingIdIndex]?.toString().trim() === meetingId
+    );
+    console.log('Найдено записей:', filtered.length);
 
-    return {
-      id: row[recordIdIndex]?.toString(),
-      type: row[typeIndex],
-      text: row[textIndex],
-      dueDate: (() => {
-        try {
-          const date = parseDate(rawDate);
-          console.log('Успешно распарсено:', date);
-          return Utilities.formatDate(
-            date, 
-            Session.getScriptTimeZone(), 
-            "dd.MM.yyyy"
-          );
-        } catch(e) {
-          console.error('Финальная обработка даты:', e);
-          return 'Некорректная дата';
+    const parseDate = (dateValue) => {
+      try {
+        // Если значение уже является объектом Date
+        if (dateValue instanceof Date) {
+          return dateValue;
         }
-      })(),  
-      responsible: (() => {
-        const raw = row[responsibleIndex]?.toString().trim();
-        if (!raw) return [];
         
-        return raw.split(';').map(r => {
-          const match = r.match(/(.*?)\s\((.*?)\)/);
-          return match ? { 
-            name: match[1].trim(), 
-            email: match[2].trim() 
-          } : {name: r.trim(), email: ''};
-        });
-      })(),      
-      status: {
-        importance: row[importanceIndex] || 'Не указано',
-        priority: row[priorityIndex] || 'Не указано',
-        completed: row[completedIndex]?.toString().toLowerCase()
+        // Если это строка формата DD-MM-YYYY
+        if (typeof dateValue === 'string') {
+          const [day, month, year] = dateValue.split('-');
+          return new Date(year, month-1, day);
+        }
+        
+        // Для других случаев (timestamp, etc)
+        return new Date(dateValue);
+      } catch(e) {
+        console.error('Ошибка парсинга даты:', e);
+        return new Date(); // Возвращаем текущую дату как fallback
       }
-    }
-  });
+    };
 
-  // Кэшируем на 5 минут
-  // cache.put(cacheKey, JSON.stringify(records), 300);
-  console.log('Итоговые записи:', JSON.stringify(records, null, 2));
-  return records;
+    // Проверка индексов колонок
+    const getHeaderIndex = (name) => {
+      const index = headers.indexOf(name.toLowerCase().trim());
+      if (index === -1) throw new Error(`Колонка "${name}" не найдена`);
+      return index;
+    };
+
+    const recordIdIndex = getHeaderIndex('ID записи');
+    const typeIndex = getHeaderIndex('Запись');
+    const textIndex = getHeaderIndex('Текст записи');
+    const dateIndex = getHeaderIndex('Срок');
+    const responsibleIndex = getHeaderIndex('Ответственные ID'); 
+    const importanceIndex = getHeaderIndex('Значимость');
+    const priorityIndex = getHeaderIndex('Приоритет');
+    const completedIndex = getHeaderIndex('Выполнено');
+
+    const records = filtered.map((row, idx) => {
+      console.log(`Обработка строки ${idx + 1}:`, JSON.stringify(row));
+      // Логирование сырых данных даты
+      const rawDate = row[dateIndex];
+      console.log('Тип данных даты:', typeof rawDate);
+      console.log('Значение даты:', rawDate);
+
+      return {
+        id: row[recordIdIndex]?.toString(),
+        type: row[typeIndex],
+        text: row[textIndex],
+        dueDate: (() => {
+          try {
+            const date = parseDate(rawDate);
+            console.log('Успешно распарсено:', date);
+            return Utilities.formatDate(
+              date, 
+              Session.getScriptTimeZone(), 
+              "dd.MM.yyyy"
+            );
+          } catch(e) {
+            console.error('Финальная обработка даты:', e);
+            return 'Некорректная дата';
+          }
+        })(),  
+        responsible: row[responsibleIndex] ? 
+          row[responsibleIndex].toString().split(',').map(id => id.trim()) : 
+          [],      
+        status: {
+          importance: row[importanceIndex] || 'Не указано',
+          priority: row[priorityIndex] || 'Не указано',
+          completed: row[completedIndex]?.toString().toLowerCase()
+        }
+      }
+    });
+    // Гарантируем возврат массива даже при ошибках
+    return records || [];
+        
+  } catch(e) {
+    // Кэшируем на 5 минут
+    // cache.put(cacheKey, JSON.stringify(records), 300);
+    console.log('Итоговые записи:', JSON.stringify(records, null, 2));
+    return [];
+  }  
+
 }
 
 function testGetRecords() {
   getRecordsByMeetingId('e845a1dc-1c75-474f-b495-d930cd60f5d8');
+}
+
+function getEmployeesByID(employeeIds) {
+  // Проверяем и нормализуем входные данные
+  let idsArray = [];
+  
+  if (Array.isArray(employeeIds)) {
+    // Если передали массив - используем его
+    idsArray = employeeIds;
+  } else if (typeof employeeIds === 'string') {
+    // Если передали строку - разбиваем по запятой
+    idsArray = employeeIds.split(',');
+  } else {
+    // Если другой формат - создаем массив из аргументов
+    idsArray = Array.from(arguments);
+  }
+  
+  // Нормализуем ID: trim + lower case
+  const normalizedIds = idsArray.map(id => 
+    id.toString().trim().toLowerCase()
+  ).filter(id => id);
+    
+  const sheet = SpreadsheetApp.getActive().getSheetByName('Сотрудники');
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0].map(h => h.toString().toLowerCase().trim());
+  
+  // Получаем индексы колонок
+  const idIndex = headers.indexOf('id сотрудника');
+  const orgIndex = headers.indexOf('организация');
+  const deptIndex = headers.indexOf('подразделение');
+  const unitIndex = headers.indexOf('отдел');
+  const groupIndex = headers.indexOf('группа');
+  const positionIndex = headers.indexOf('должность');
+  const lastNameIndex = headers.indexOf('фамилия');
+  const firstNameIndex = headers.indexOf('имя');
+  const middleNameIndex = headers.indexOf('отчество');
+  const emailIndex = headers.indexOf('почта');
+  const displayNameIndex = headers.indexOf('отображаемое имя');
+    
+  return data.slice(1).map(row => {
+    const id = row[idIndex]?.toString().trim();
+    
+    // Проверяем, есть ли ID в запрошенном списке
+    if (!normalizedIds.includes(id.toLowerCase())) return null;
+    
+    const result = {
+      id: id,
+      organization: row[orgIndex]?.toString().trim(),
+      department: row[deptIndex]?.toString().trim(),
+      unit: row[unitIndex]?.toString().trim(),
+      group: row[groupIndex]?.toString().trim(),
+      position: row[positionIndex]?.toString().trim(),
+      lastName: row[lastNameIndex]?.toString().trim(),
+      firstName: row[firstNameIndex]?.toString().trim(),
+      middleName: row[middleNameIndex]?.toString().trim(),
+      email: row[emailIndex]?.toString().trim(),
+      displayName: row[displayNameIndex]?.toString().trim() || 
+        `${row[firstNameIndex]?.toString().trim()} ${row[lastNameIndex]?.toString().trim()}`
+    }
+    console.log('Данные участников:' + result);
+
+    return result
+
+  }).filter(employee => employee !== null); // Фильтруем null значения
+}
+
+function testEmployeesByID() {
+  // Передаем ID как массив
+  const ids = [
+    '9032088e-b7f4-4414-87b7-0e29d23acdcb', 
+    'bc5bbfd1-bbc8-457b-96fd-c5017df60862'
+  ];
+  
+  const employees = getEmployeesByID(ids);
+  console.log('Found employees:', employees.length);
+  console.log(JSON.stringify(employees, null, 2));
 }

@@ -58,21 +58,22 @@ function saveMeetingAttendees(attendees) {
     .setProperty('currentMeetingAttendees', JSON.stringify(attendees));
 }
 
-function showRecordDialog(meetingData = '179') {
+function showRecordDialog(meetingData = '') {
   const props = PropertiesService.getScriptProperties();
   
   try {
-    // Парсим данные встречи
-    const data = typeof meetingData === 'string' 
-      ? JSON.parse(meetingData) 
-      : meetingData;
-
-    // Сохраняем данные в PropertiesService
-    props.setProperties({
-      'currentMeetingId': data.id || '',
-      'currentMeetingNumber': data.number?.toString() || '',
-      'currentMeetingAttendees': JSON.stringify(data.attendees || [])
-    });
+    if (meetingData && typeof meetingData === 'object') {
+      props.setProperty('currentMeetingId', meetingData.id || '');
+      props.setProperty('currentMeetingNumber', meetingData.number?.toString() || '');
+      props.setProperty('currentMeetingAttendees', JSON.stringify(meetingData.attendees?.ids || []));
+    } else {
+      // Получаем свойства по одному
+      const currentMeetingId = props.getProperty('currentMeetingId');
+      
+      if (!currentMeetingId) {
+        throw new Error('Данные встречи не найдены');
+      }
+    }
 
     // Открываем диалог
     const html = HtmlService.createHtmlOutputFromFile('recordForm')
@@ -82,7 +83,7 @@ function showRecordDialog(meetingData = '179') {
 
   } catch(e) {
     console.error('Dialog open error:', e);
-    throw new Error('Ошибка открытия окна записей');
+    throw new Error('Ошибка открытия окна записей: ' + e.message);
   }
 }
 

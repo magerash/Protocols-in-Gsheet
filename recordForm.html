@@ -210,7 +210,51 @@
       border: none; /* Убираем рамки */
       margin-top: 10px;
     }
-   
+    .custom-alert {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0,0,0,0.5);
+      z-index: 10000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .custom-alert-content {
+      background: white;
+      padding: 24px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      max-width: 400px;
+      width: 90%;
+      text-align: center;
+    }
+
+    .custom-alert-message {
+      margin-bottom: 20px;
+      font-size: 16px;
+      color: #202124;
+      line-height: 1.5;
+    }
+
+    .custom-alert-button {
+      background-color: #1a73e8;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 10px 24px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    .custom-alert-button:hover {
+      background-color: #1765cc;
+    }
+
   </style>
 </head>
 <body>
@@ -310,13 +354,6 @@
       // Устанавливаем заголовок
       const protocolMatch = document.title.match(/\d+/);
       const protocolNumber = protocolMatch ? protocolMatch[0] : 'N/A';
-      // document.getElementById('meetingTitle').textContent = ``;
-
-      // Инициализируем глобальные данные
-      // async loadGlobalData();
-        
-      // Запускаем загрузку формы
-      // async initializeForm();
 
       // Асинхронная функция загрузки глобальных данных
       async function loadGlobalData() {
@@ -359,11 +396,13 @@
         }
       }
     
-      // Добавляем в client-код
       function getCurrentMeetingId() {
         return new Promise((resolve, reject) => {
           google.script.run
             .withSuccessHandler(data => {
+              console.log('data:', data);
+              console.log('meeting ID:', data.id);
+
               if (data && data.id) {
                 resolve(data.id);
               } else {
@@ -372,42 +411,62 @@
             })
             .withFailureHandler(reject)
             .getCurrentMeetingData();
-        });
-      }
 
-      // Серверная функция (должна быть в dialogs.gs)
-      function getCurrentMeetingData() {
-        const props = PropertiesService.getScriptProperties();
-        return {
-          id: props.getProperty('currentMeetingId'),
-          number: props.getProperty('currentMeetingNumber')
-        };
+        });
       }
 
       async function initializeForm() {
         try {
           const meetingId = await getCurrentMeetingId();
 
-          // Загружаем записи встречи И участников встречи
-          const [recordsData, meetingAttendees] = await Promise.all([
-            new Promise((resolve, reject) => {
-              google.script.run
-                .withSuccessHandler(resolve)
-                .withFailureHandler(reject)
-                .getRecordsByMeetingId(meetingId);
-            }),
-            new Promise((resolve, reject) => {
-              google.script.run
-                .withSuccessHandler(resolve)
-                .withFailureHandler(reject)
-                .getMeetingAttendees(meetingId);
-            })
-          ]);
+          // Загружаем записи встречи с проверкой типа
+          const recordsData = await new Promise((resolve, reject) => {
+            google.script.run
+              .withSuccessHandler(result => {
+                // Гарантируем, что результат всегда будет массивом
+                resolve(Array.isArray(result) ? result : []);
+              })
+              .withFailureHandler(reject)
+              .getRecordsByMeetingId(meetingId);
+          });
 
-          // Сохраняем участников встречи в глобальной переменной
-          window.meetingAttendees = meetingAttendees || [];
-          console.log('Участники встречи:', window.meetingAttendees);
+          // Загружаем данные встречи
+          const meetingData = await new Promise((resolve, reject) => {
+            google.script.run
+              .withSuccessHandler(resolve)
+              .withFailureHandler(reject)
+              .getMeetingById(meetingId);
+          });
 
+          console.log('Данные встречи:', meetingData);
+
+          // Извлекаем ID участников
+          const attendeeIds = meetingData.attendees?.ids || [];
+          console.log('ID участников:', attendeeIds);
+
+          // Загружаем данные сотрудников по ID
+          const meetingAttendeesByIDs = await new Promise((resolve, reject) => {
+            google.script.run
+              .withSuccessHandler(resolve)
+              .withFailureHandler(reject)
+              .getEmployeesByID(attendeeIds);
+          });
+
+          //Сохраняем участников встречи
+          window.meetingAttendees = meetingAttendeesByIDs || [];
+          console.log('Участники:', window.meetingAttendees);
+
+          // Заполняем данные встречи в интерфейсе
+          const headerEl = document.getElementById('meetingHeader');
+          if (headerEl) {
+            headerEl.innerHTML = `
+              <h2>Встреча №${meetingData.number || 'N/A'}</h2>
+              <div>Тема: ${meetingData.topic || 'Без темы'}</div>
+              <div>Дата: ${meetingData.date || 'Не указана'}</div>
+            `;
+          }    
+          
+          // Инициализация записей
           renderExistingRecords(recordsData);
           initControls();
           
@@ -473,26 +532,32 @@
       // Функция рендеринга существующих записей
       function renderExistingRecords(records) {
         const recordsContainer = document.getElementById('recordsContainer');
-        recordsContainer.innerHTML = ''; // Очищаем контейнер
+        recordsContainer.innerHTML = '';
+        // Добавляем проверку на массив
+        if (!Array.isArray(records)) {
+          console.warn('Records is not array:', records);
+          records = [];
+        }  
 
         records.forEach(record => {
-          const recordData = prepareRecordData();
           const template = document.getElementById('recordTemplate');
+          const clone = template.content.cloneNode(true);
+          const container = clone.querySelector('.record');
           
-          // Модифицируем setupRecordElements для заполнения существующих данных
-          const { accordion } = setupRecordElements(template, {
-            ...recordData,
-            existingRecord: record // Передаем данные существующей записи
-          });
-
-          // Заполняем данные из записи
-          fillRecordElements(accordion, record);
+          // Заполняем данные записи
+          fillRecordElements(container, record);
           
-          recordsContainer.appendChild(accordion);
-        });
+          // Добавляем обработчики событий
+          const accordion = clone.querySelector('.accordion');
+          const recordNumber = recordsContainer.querySelectorAll('.accordion').length + 1;
+          setupRecordEventHandlers(accordion, recordNumber);
+          
+          recordsContainer.appendChild(clone);
+        });      
       }
 
-      // Функция заполнения данных записи
+      // // Функция заполнения данных записи
+
       function fillRecordElements(container, record) {
         // Текст записи
         const textEditor = container.querySelector('.text-editor');
@@ -504,21 +569,38 @@
           dueDate.value = record.dueDate.split('.').reverse().join('-');
         }
 
-        // Ответственные
+        // Ответственные - ВАЖНОЕ ИЗМЕНЕНИЕ!
         const responsibleSelect = container.querySelector('.responsible');
         if (responsibleSelect) {
-          Array.from(responsibleSelect.options).forEach(option => {
-            option.selected = record.responsible.some(r => r.id === option.value);
+          // Очищаем текущие опции
+          responsibleSelect.innerHTML = '';
+          
+          // Добавляем участников встречи
+          window.meetingAttendees.forEach(attendee => {
+            const option = document.createElement('option');
+            option.value = attendee.id;
+            
+            // Форматируем имя как "И. Иванов"
+            const firstNameInitial = attendee.firstName ? attendee.firstName[0] + '.' : '';
+            const formattedName = `${firstNameInitial} ${attendee.lastName}`;
+            
+            option.textContent = `${formattedName} (${attendee.email})`;
+            
+            // Отмечаем выбранных
+            if (record.responsible && record.responsible.includes(attendee.id)) {
+              option.selected = true;
+            }
+            
+            responsibleSelect.appendChild(option);
           });
         }
-
         // Статусы
         const importanceSelect = container.querySelector('.importance');
         if (importanceSelect) importanceSelect.value = record.status.importance;
         
         const prioritySelect = container.querySelector('.priority');
         if (prioritySelect) prioritySelect.value = record.status.priority;
-      }
+      }        
 
       function loadRecordTypes() {
         return new Promise(function(resolve) {
@@ -564,7 +646,7 @@
           createNewRecord(btn, originalText);
         }, 50);
       }
-
+      
       function createNewRecord(btn, originalText) {
         try {
           const template = document.getElementById('recordTemplate');
@@ -572,6 +654,24 @@
           
           const recordData = prepareRecordData();
           const { accordion, recordNumber } = setupRecordElements(template, recordData);
+          
+          // Добавьте этот блок для инициализации списка ответственных
+          const responsibleSelect = accordion.querySelector('.responsible');
+          if (responsibleSelect && window.meetingAttendees) {
+            responsibleSelect.innerHTML = '';
+            
+            window.meetingAttendees.forEach(attendee => {
+              const option = document.createElement('option');
+              option.value = attendee.id;
+              
+              // Форматируем имя как "И. Иванов"
+              const firstNameInitial = attendee.firstName ? attendee.firstName[0] + '.' : '';
+              const formattedName = `${firstNameInitial} ${attendee.lastName}`;
+              
+              option.textContent = `${formattedName} (${attendee.email})`;
+              responsibleSelect.appendChild(option);
+            });
+          }
           
           setupRecordEventHandlers(accordion, recordNumber);
           appendRecordToDOM(accordion);
@@ -582,7 +682,7 @@
           resetButtonState(btn, originalText);
           isInitialLoad = false;
         }
-      }
+      }      
 
       // Обновленная функция prepareRecordData
       function prepareRecordData() {
@@ -826,6 +926,46 @@
               }
           });
       }
+
+      /**
+       * Показывает кастомное уведомление
+       * @param {string} message - Текст сообщения
+       * @param {boolean} isSuccess - Тип сообщения (true - успех, false - ошибка)
+       * @param {Function} [callback] - Функция обратного вызова после закрытия
+       */
+      function showNotification(message, isSuccess, callback) {
+        const modal = document.getElementById('notificationModal');
+        const messageEl = document.getElementById('notificationMessage');
+        const okButton = document.getElementById('notificationOK');
+        
+        if (!modal || !messageEl || !okButton) {
+          // Fallback на стандартный alert
+          alert(message);
+          if (callback) callback();
+          return;
+        }
+        
+        // Настройка стилей по типу сообщения
+        messageEl.textContent = message;
+        messageEl.style.color = isSuccess ? '#0f9d58' : '#d93025';
+        
+        // Обработчик закрытия
+        const closeHandler = () => {
+          modal.style.display = 'none';
+          if (callback) callback();
+        };
+        
+        // Назначаем обработчики
+        okButton.onclick = closeHandler;
+        
+        // Показываем модальное окно
+        modal.style.display = 'flex';
+        
+        // Автозакрытие для успешных сообщений
+        if (isSuccess) {
+          setTimeout(closeHandler, 3000);
+        }
+      }      
     
       function saveAllRecords() {
         const saveBtn = document.getElementById('saveAllBtn');
@@ -898,23 +1038,50 @@
           return;
         }
 
+        // google.script.run
+        //   .withSuccessHandler(() => {
+        //     alert(`Успешно сохранено ${recordsData.length} записей`);
+        //     saveBtn.disabled = false;
+        //     addBtn.disabled = false;
+        //     saveBtn.textContent = originalText;
+        //     google.script.host.close();
+        //   })
+        //   .withFailureHandler(error => {
+        //     alert(`Ошибка сохранения: ${error.message}`);
+        //     saveBtn.disabled = false;
+        //     addBtn.disabled = false;
+        //     saveBtn.textContent = originalText;
+        //   })
+        //   .createRecords(recordsData);
+
         google.script.run
           .withSuccessHandler(() => {
-            alert(`Успешно сохранено ${recordsData.length} записей`);
-            saveBtn.disabled = false;
-            addBtn.disabled = false;
-            saveBtn.textContent = originalText;
-            google.script.host.close();
+            showNotification(
+              `✅ Успешно сохранено ${recordsData.length} записей`,
+              true,
+              () => {
+                saveBtn.disabled = false;
+                addBtn.disabled = false;
+                saveBtn.textContent = originalText;
+                google.script.host.close();
+              }
+            );
           })
           .withFailureHandler(error => {
-            alert(`Ошибка сохранения: ${error.message}`);
-            saveBtn.disabled = false;
-            addBtn.disabled = false;
-            saveBtn.textContent = originalText;
+            showNotification(
+              `❌ Ошибка сохранения: ${error.message}`,
+              false,
+              () => {
+                saveBtn.disabled = false;
+                addBtn.disabled = false;
+                saveBtn.textContent = originalText;
+              }
+            );
           })
           .createRecords(recordsData);
+
       }
-      
+
       // Запускаем инициализацию
       try {
         loadGlobalData();
@@ -928,5 +1095,14 @@
     });      
 
   </script>
+
+  <!-- Модальное окно для уведомлений -->
+  <div id="notificationModal" class="custom-alert" style="display: none;">
+    <div class="custom-alert-content">
+      <div class="custom-alert-message" id="notificationMessage"></div>
+      <button class="custom-alert-button" id="notificationOK">OK</button>
+    </div>
+  </div>  
+
 </body>
 </html>

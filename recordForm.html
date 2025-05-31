@@ -180,7 +180,6 @@
       transform: rotate(180deg);
     }
 
-
     .text-editor {
       min-height: 100px;
       border: 1px solid #ddd;
@@ -257,7 +256,7 @@
       flex-grow: 1;
       display: block; /* Добавьте это */
       color: #202124; /* Явно задаем цвет текста */
-      font-weight: 500; /* Делаем текст жирным */
+      /* font-weight: 500; Делаем текст жирным */
     }
     .employee-email {
       color: #5f6368;
@@ -316,7 +315,7 @@
 
     .employee-option.selected {
       background-color: #e8f0fe;
-      font-weight: 500;
+      /* font-weight: 500; */
     }
 
   </style>
@@ -531,6 +530,22 @@
           // Инициализация записей
           renderExistingRecords(recordsData);
           initControls();
+          
+          // Добавляем первую запись, если нет существующих
+          if (recordsData.length === 0) {
+            // Ждем завершения рендеринга
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            // Получаем кнопку добавления
+            const addBtn = document.getElementById('addRecordBtn');
+            if (addBtn && !addBtn.disabled) {
+              // Эмулируем клик по кнопке
+              addBtn.click();
+            } else {
+              // Если кнопка недоступна, создаем запись напрямую
+              createNewRecord(addBtn, 'Добавить запись');
+            }
+          }          
           
         } catch(e) {
           console.error('Ошибка загрузки данных встречи:', e);

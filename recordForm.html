@@ -210,6 +210,7 @@
       border: none; /* Убираем рамки */
       margin-top: 10px;
     }
+
     .custom-alert {
       display: none;
       position: fixed;
@@ -355,6 +356,7 @@
       const protocolMatch = document.title.match(/\d+/);
       const protocolNumber = protocolMatch ? protocolMatch[0] : 'N/A';
 
+
       // Асинхронная функция загрузки глобальных данных
       async function loadGlobalData() {
         try {
@@ -479,6 +481,7 @@
 
       function initControls() {
         // Инициализация кнопок и других элементов
+
         const addBtn = document.getElementById('addRecordBtn');
         if (addBtn) {
           addBtn.disabled = false;
@@ -610,6 +613,7 @@
           }).getRecordTypes();
         });
       }
+
       
       function loadImportanceLevels() {
         return new Promise(function(resolve) {
@@ -814,6 +818,7 @@
             updateFieldsAvailability();
             updateTitle();
           });
+
         }
         
         if (textEditor) textEditor.addEventListener('input', updateTitle);
@@ -1037,22 +1042,6 @@
           saveBtn.textContent = 'Сохранить все';
           return;
         }
-
-        // google.script.run
-        //   .withSuccessHandler(() => {
-        //     alert(`Успешно сохранено ${recordsData.length} записей`);
-        //     saveBtn.disabled = false;
-        //     addBtn.disabled = false;
-        //     saveBtn.textContent = originalText;
-        //     google.script.host.close();
-        //   })
-        //   .withFailureHandler(error => {
-        //     alert(`Ошибка сохранения: ${error.message}`);
-        //     saveBtn.disabled = false;
-        //     addBtn.disabled = false;
-        //     saveBtn.textContent = originalText;
-        //   })
-        //   .createRecords(recordsData);
 
         google.script.run
           .withSuccessHandler(() => {

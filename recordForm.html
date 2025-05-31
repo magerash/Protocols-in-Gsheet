@@ -210,7 +210,52 @@
       border: none; /* Убираем рамки */
       margin-top: 10px;
     }
-   
+
+    .custom-alert {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0,0,0,0.5);
+      z-index: 10000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .custom-alert-content {
+      background: white;
+      padding: 24px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      max-width: 400px;
+      width: 90%;
+      text-align: center;
+    }
+
+    .custom-alert-message {
+      margin-bottom: 20px;
+      font-size: 16px;
+      color: #202124;
+      line-height: 1.5;
+    }
+
+    .custom-alert-button {
+      background-color: #1a73e8;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 10px 24px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    .custom-alert-button:hover {
+      background-color: #1765cc;
+    }
+
   </style>
 </head>
 <body>
@@ -294,477 +339,759 @@
 </template>
 
   <script>
-    // Глобальные переменные состояния
-    var recordCounter = 1;
-    var employees = [];
-    var recordTypes = [];
-    var importanceLevels = [];
-    var priorityLevels = [];
-    let isAddingRecord = false;
-    let isInitialLoad = true;
-    var currentMeetingId;
-    var currentMeetingNumber;  
 
     document.addEventListener('DOMContentLoaded', function() {
-      var isInitialized = false;
+      // Глобальные переменные состояния
+      let recordCounter = 1;
+      let recordTypes = [];
+      let importanceLevels = [];
+      let priorityLevels = [];
+      let isAddingRecord = false;
+      let isInitialLoad = true;
+      let currentMeetingId;
+      let currentMeetingNumber;        
+      // const isInitialized = false;
 
       // Устанавливаем заголовок
       const protocolMatch = document.title.match(/\d+/);
       const protocolNumber = protocolMatch ? protocolMatch[0] : 'N/A';
-      // document.getElementById('meetingTitle').textContent = ``;
 
-    // Получаем ID встречи
-      google.script.run
-        .withSuccessHandler(function(data) {
-          currentMeetingId = data.id;
-          currentMeetingNumber = data.number;
-          initForm();
-        })
-        .getCurrentMeetingData();
-        
-      // Сначала загружаем сотрудников
-      loadEmployees().then(() => {
-        // Затем загружаем остальные данные
-        return Promise.all([
-          loadRecordTypes(),
-          loadImportanceLevels(),
-          loadPriorityLevels()
-        ]);
-      }).then(() => {
 
-        // Активируем кнопку только после полной загрузки
-        const addBtn = document.getElementById('addRecordBtn');
-        addBtn.disabled = false;
-        addBtn.textContent = 'Добавить запись';
-        
-        // Добавляем первую запись только если это первая инициализация
-        if (!isInitialized) {
-          addRecord();
-          isInitialized = true;
+      // Асинхронная функция загрузки глобальных данных
+      async function loadGlobalData() {
+        try {
+          const [recordTypes, importanceLevels, priorityLevels] = await Promise.all([
+            new Promise((resolve) => {
+              google.script.run
+                .withSuccessHandler(resolve)
+                .withFailureHandler(() => resolve([]))
+                .getRecordTypes();
+            }),
+            new Promise((resolve) => {
+              google.script.run
+                .withSuccessHandler(resolve)
+                .withFailureHandler(() => resolve([]))
+                .getImportanceLevels();
+            }),
+            new Promise((resolve) => {
+              google.script.run
+                .withSuccessHandler(resolve)
+                .withFailureHandler(() => resolve([]))
+                .getPriorityLevels();
+            })
+          ]);
+
+          window.recordTypes = recordTypes;
+          window.importanceLevels = importanceLevels;
+          window.priorityLevels = priorityLevels;
+
+          console.log('Данные справочников загружены');
+          return Promise.resolve();
+
+        } catch(e) {
+          console.error('Ошибка загрузки справочников:', e);
+          // Устанавливаем значения по умолчанию
+          window.recordTypes = [];
+          window.importanceLevels = [];
+          window.priorityLevels = [];
+          return Promise.resolve();        
         }
-        
-        // Назначаем обработчики кнопок
-        addBtn.addEventListener('click', addRecord);
-        document.getElementById('saveAllBtn').addEventListener('click', saveAllRecords);
-
-      }).catch(function(error) {
-        console.error('Ошибка загрузки:', error);
-        alert('Ошибка загрузки данных: ' + error.message);
-      });
-    });
-
-    function initForm() {
-      // document.getElementById('meetingTitle').textContent = 
-      //   `Записи встречи №${currentMeetingNumber}`;
-
-      loadEmployees(currentMeetingId)
-        .then(function(attendees) {
-          // Загружаем только участников встречи
-          window.employees = attendees;
-          // ... остальная инициализация ...
-        })
-        .catch(function(error) {
-          console.error('Ошибка загрузки участников:', error);
-        });
-    }
-
-    // function loadEmployees() {
-    //   return new Promise(function(resolve, reject) {
-    //     if (employees && employees.length > 0) {
-    //       resolve(employees);
-    //       return;
-    //     }
-        
-    //     google.script.run
-    //       .withSuccessHandler(function(data) {
-    //         employees = data;
-    //         resolve(data);
-    //       })
-    //       .withFailureHandler(function(error) {
-    //         console.error('Ошибка загрузки сотрудников:', error);
-    //         reject(error);
-    //       })
-    //       .getEmployees();
-    //   });
-    // }
-
-    function loadEmployees(meetingId) {
-      return new Promise(function(resolve, reject) {
-        google.script.run
-          .withSuccessHandler(resolve)
-          .withFailureHandler(reject)
-          .getMeetingAttendees(meetingId);
-      });
-    }    
-
-    function loadRecordTypes() {
-      return new Promise(function(resolve) {
-        google.script.run.withSuccessHandler(function(data) {
-          recordTypes = data;
-          resolve();
-        }).getRecordTypes();
-      });
-    }
-    
-    function loadImportanceLevels() {
-      return new Promise(function(resolve) {
-        google.script.run.withSuccessHandler(function(data) {
-          importanceLevels = data;
-          resolve();
-        }).getImportanceLevels();
-      });
-    }
-    
-    function loadPriorityLevels() {
-      return new Promise(function(resolve) {
-        google.script.run.withSuccessHandler(function(data) {
-          priorityLevels = data;
-          resolve();
-        }).getPriorityLevels();
-      });
-    }
-    
-    function addRecord() {
-      if (isAddingRecord) return;
-      
-      const btn = document.getElementById('addRecordBtn');
-      if (!btn) return;
-      
-      const originalText = btn.textContent;
-      isAddingRecord = true;
-      
-      // Немедленно блокируем кнопку
-      btn.disabled = true;
-      btn.innerHTML = createSpinnerHTML();
-      addSpinnerStyles();
-      
-      // Задержка для плавности UI (не влияет на функциональность)
-      setTimeout(() => {
-        if (employees.length === 0) {
-          loadEmployees()
-            .then(() => createNewRecord(btn, originalText))
-            .catch(error => handleLoadError(error, btn, originalText));
-        } else {
-          createNewRecord(btn, originalText);
-        }
-      }, 50);
-    }
-
-    function createNewRecord(btn, originalText) {
-      try {
-        const template = document.getElementById('recordTemplate');
-        if (!template) throw new Error('Template not found');
-        
-        const recordData = prepareRecordData();
-        const { accordion, recordNumber } = setupRecordElements(template, recordData);
-        
-        setupRecordEventHandlers(accordion, recordNumber);
-        appendRecordToDOM(accordion);
-        
-      } catch (error) {
-        console.error('Record creation error:', error);
-      } finally {
-        resetButtonState(btn, originalText);
-        isInitialLoad = false;
       }
-    }
+    
+      function getCurrentMeetingId() {
+        return new Promise((resolve, reject) => {
+          google.script.run
+            .withSuccessHandler(data => {
+              console.log('data:', data);
+              console.log('meeting ID:', data.id);
 
-    function prepareRecordData() {
-      const recordNumber = document.querySelectorAll('.accordion').length + 1;
-      return {
-        recordNumber,
-        employees,
-        recordTypes,
-        importanceLevels,
-        priorityLevels
-      };
-    }
+              if (data && data.id) {
+                resolve(data.id);
+              } else {
+                reject(new Error('ID встречи не получен'));
+              }
+            })
+            .withFailureHandler(reject)
+            .getCurrentMeetingData();
 
-    function setupRecordElements(template, data) {
-      const clone = template.content.cloneNode(true);
-      const accordion = clone.querySelector('.accordion');
+        });
+      }
+
+      async function initializeForm() {
+        try {
+          const meetingId = await getCurrentMeetingId();
+
+          // Загружаем записи встречи с проверкой типа
+          const recordsData = await new Promise((resolve, reject) => {
+            google.script.run
+              .withSuccessHandler(result => {
+                // Гарантируем, что результат всегда будет массивом
+                resolve(Array.isArray(result) ? result : []);
+              })
+              .withFailureHandler(reject)
+              .getRecordsByMeetingId(meetingId);
+          });
+
+          // Загружаем данные встречи
+          const meetingData = await new Promise((resolve, reject) => {
+            google.script.run
+              .withSuccessHandler(resolve)
+              .withFailureHandler(reject)
+              .getMeetingById(meetingId);
+          });
+
+          console.log('Данные встречи:', meetingData);
+
+          // Извлекаем ID участников
+          const attendeeIds = meetingData.attendees?.ids || [];
+          console.log('ID участников:', attendeeIds);
+
+          // Загружаем данные сотрудников по ID
+          const meetingAttendeesByIDs = await new Promise((resolve, reject) => {
+            google.script.run
+              .withSuccessHandler(resolve)
+              .withFailureHandler(reject)
+              .getEmployeesByID(attendeeIds);
+          });
+
+          //Сохраняем участников встречи
+          window.meetingAttendees = meetingAttendeesByIDs || [];
+          console.log('Участники:', window.meetingAttendees);
+
+          // Заполняем данные встречи в интерфейсе
+          const headerEl = document.getElementById('meetingHeader');
+          if (headerEl) {
+            headerEl.innerHTML = `
+              <h2>Встреча №${meetingData.number || 'N/A'}</h2>
+              <div>Тема: ${meetingData.topic || 'Без темы'}</div>
+              <div>Дата: ${meetingData.date || 'Не указана'}</div>
+            `;
+          }    
+          
+          // Инициализация записей
+          renderExistingRecords(recordsData);
+          initControls();
+          
+        } catch(e) {
+          console.error('Ошибка загрузки данных встречи:', e);
+          showAlert('Не удалось загрузить записи встречи: ' + e.message, false);
+          return Promise.reject(e);
+        }
+      }
+
+      function initControls() {
+        // Инициализация кнопок и других элементов
+
+        const addBtn = document.getElementById('addRecordBtn');
+        if (addBtn) {
+          addBtn.disabled = false;
+          addBtn.textContent = 'Добавить запись';
+          addBtn.addEventListener('click', addRecord);
+        }
+        
+        const saveBtn = document.getElementById('saveAllBtn');
+        if (saveBtn) {
+          saveBtn.addEventListener('click', saveAllRecords);
+        }
+      }
+
+      function showAlert(message, autoClose = true) {
+        try {
+          // Проверяем существование элементов алерта
+          const alertEl = document.getElementById('customAlert');
+          const messageEl = document.getElementById('customAlertMessage');
+          const okButton = document.getElementById('customAlertOK');
+          
+          if (!alertEl || !messageEl || !okButton) {
+            // Резервный вариант
+            alert(message);
+            if (autoClose) {
+              setTimeout(() => google.script.host.close(), 3000);
+            }
+            return;
+          }
+          
+          // Настраиваем алерт
+          messageEl.textContent = message;
+          alertEl.style.display = 'flex';
+          
+          okButton.onclick = () => {
+            alertEl.style.display = 'none';
+            if (autoClose) google.script.host.close();
+          };
+          
+          if (autoClose) {
+            setTimeout(() => {
+              alertEl.style.display = 'none';
+              google.script.host.close();
+            }, 3000);
+          }
+        } catch (e) {
+          console.error('Ошибка в showAlert:', e);
+          alert(message); // Самый простой fallback
+        }
+      }
+
+      // Функция рендеринга существующих записей
+      function renderExistingRecords(records) {
+        const recordsContainer = document.getElementById('recordsContainer');
+        recordsContainer.innerHTML = '';
+        // Добавляем проверку на массив
+        if (!Array.isArray(records)) {
+          console.warn('Records is not array:', records);
+          records = [];
+        }  
+
+        records.forEach(record => {
+          const template = document.getElementById('recordTemplate');
+          const clone = template.content.cloneNode(true);
+          const container = clone.querySelector('.record');
+          
+          // Заполняем данные записи
+          fillRecordElements(container, record);
+          
+          // Добавляем обработчики событий
+          const accordion = clone.querySelector('.accordion');
+          const recordNumber = recordsContainer.querySelectorAll('.accordion').length + 1;
+          setupRecordEventHandlers(accordion, recordNumber);
+          
+          recordsContainer.appendChild(clone);
+        });      
+      }
+
+      // // Функция заполнения данных записи
+
+      function fillRecordElements(container, record) {
+        // Текст записи
+        const textEditor = container.querySelector('.text-editor');
+        if (textEditor) textEditor.innerHTML = record.text;
+
+        // Срок выполнения
+        const dueDate = container.querySelector('.due-date');
+        if (dueDate) {
+          dueDate.value = record.dueDate.split('.').reverse().join('-');
+        }
+
+        // Ответственные - ВАЖНОЕ ИЗМЕНЕНИЕ!
+        const responsibleSelect = container.querySelector('.responsible');
+        if (responsibleSelect) {
+          // Очищаем текущие опции
+          responsibleSelect.innerHTML = '';
+          
+          // Добавляем участников встречи
+          window.meetingAttendees.forEach(attendee => {
+            const option = document.createElement('option');
+            option.value = attendee.id;
+            
+            // Форматируем имя как "И. Иванов"
+            const firstNameInitial = attendee.firstName ? attendee.firstName[0] + '.' : '';
+            const formattedName = `${firstNameInitial} ${attendee.lastName}`;
+            
+            option.textContent = `${formattedName} (${attendee.email})`;
+            
+            // Отмечаем выбранных
+            if (record.responsible && record.responsible.includes(attendee.id)) {
+              option.selected = true;
+            }
+            
+            responsibleSelect.appendChild(option);
+          });
+        }
+        // Статусы
+        const importanceSelect = container.querySelector('.importance');
+        if (importanceSelect) importanceSelect.value = record.status.importance;
+        
+        const prioritySelect = container.querySelector('.priority');
+        if (prioritySelect) prioritySelect.value = record.status.priority;
+      }        
+
+      function loadRecordTypes() {
+        return new Promise(function(resolve) {
+          google.script.run.withSuccessHandler(function(data) {
+            recordTypes = data;
+            resolve();
+          }).getRecordTypes();
+        });
+      }
+
       
-      // Установка номера записи
-      const numberElement = clone.querySelector('.record-number');
-      if (numberElement) numberElement.textContent = data.recordNumber;
+      function loadImportanceLevels() {
+        return new Promise(function(resolve) {
+          google.script.run.withSuccessHandler(function(data) {
+            importanceLevels = data;
+            resolve();
+          }).getImportanceLevels();
+        });
+      }
       
-      // Заполнение выпадающих списков
-      const typeSelect = accordion.querySelector('.record-type');
-      if (typeSelect) fillSelect(typeSelect, data.recordTypes);
-
-      const importanceSelect = accordion.querySelector('.importance');
-      if (importanceSelect) fillSelect(importanceSelect, data.importanceLevels);
-
-      const prioritySelect = accordion.querySelector('.priority');
-      if (prioritySelect) fillSelect(prioritySelect, data.priorityLevels);
+      function loadPriorityLevels() {
+        return new Promise(function(resolve) {
+          google.script.run.withSuccessHandler(function(data) {
+            priorityLevels = data;
+            resolve();
+          }).getPriorityLevels();
+        });
+      }
       
-      // Заполнение списка ответственных
-      const responsibleSelect = accordion.querySelector('.responsible');
-      if (responsibleSelect) {
+      function addRecord() {
+        if (isAddingRecord) return;
+        
+        const btn = document.getElementById('addRecordBtn');
+        if (!btn) return;
+        
+        const originalText = btn.textContent;
+        isAddingRecord = true;
+        btn.disabled = true;
+        btn.innerHTML = createSpinnerHTML();
+        addSpinnerStyles();
+        
+        setTimeout(() => {
+          // Всегда создаем запись, так как участники уже загружены
+          createNewRecord(btn, originalText);
+        }, 50);
+      }
+      
+      function createNewRecord(btn, originalText) {
+        try {
+          const template = document.getElementById('recordTemplate');
+          if (!template) throw new Error('Template not found');
+          
+          const recordData = prepareRecordData();
+          const { accordion, recordNumber } = setupRecordElements(template, recordData);
+          
+          // Добавьте этот блок для инициализации списка ответственных
+          const responsibleSelect = accordion.querySelector('.responsible');
+          if (responsibleSelect && window.meetingAttendees) {
+            responsibleSelect.innerHTML = '';
+            
+            window.meetingAttendees.forEach(attendee => {
+              const option = document.createElement('option');
+              option.value = attendee.id;
+              
+              // Форматируем имя как "И. Иванов"
+              const firstNameInitial = attendee.firstName ? attendee.firstName[0] + '.' : '';
+              const formattedName = `${firstNameInitial} ${attendee.lastName}`;
+              
+              option.textContent = `${formattedName} (${attendee.email})`;
+              responsibleSelect.appendChild(option);
+            });
+          }
+          
+          setupRecordEventHandlers(accordion, recordNumber);
+          appendRecordToDOM(accordion);
+          
+        } catch (error) {
+          console.error('Record creation error:', error);
+        } finally {
+          resetButtonState(btn, originalText);
+          isInitialLoad = false;
+        }
+      }      
+
+      // Обновленная функция prepareRecordData
+      function prepareRecordData() {
+        const recordNumber = document.querySelectorAll('.accordion').length + 1;
+        return {
+          recordNumber,
+          employees: window.employees || [],
+          recordTypes: window.recordTypes || [],
+          importanceLevels: window.importanceLevels || [],
+          priorityLevels: window.priorityLevels || [],
+          existingRecord: null
+        };
+      }
+
+      function prepareRecordData() {
+        const recordNumber = document.querySelectorAll('.accordion').length + 1;
+        return {
+          recordNumber,
+          employees: window.meetingAttendees || [], // Используем только участников встречи
+          recordTypes: window.recordTypes || [],
+          importanceLevels: window.importanceLevels || [],
+          priorityLevels: window.priorityLevels || [],
+          existingRecord: null
+        };
+      }
+
+      function setupRecordElements(template, data) {
+        const clone = template.content.cloneNode(true);
+        const accordion = clone.querySelector('.accordion');
+        
+        // Установка номера записи
+        const numberElement = clone.querySelector('.record-number');
+        if (numberElement) numberElement.textContent = data.recordNumber;
+        
+        // Заполнение выпадающих списков
+        const typeSelect = accordion.querySelector('.record-type');
+        if (typeSelect) fillSelect(typeSelect, data.recordTypes);
+
+        const importanceSelect = accordion.querySelector('.importance');
+        if (importanceSelect) fillSelect(importanceSelect, data.importanceLevels);
+
+        const prioritySelect = accordion.querySelector('.priority');
+        if (prioritySelect) fillSelect(prioritySelect, data.priorityLevels);
+        
+        // Заполнение списка ответственных
+        const responsibleSelect = accordion.querySelector('.responsible');
+        if (responsibleSelect) {
           responsibleSelect.innerHTML = '<option value="" disabled selected>Выберите ответственных</option>';
           data.employees.forEach(employee => {
-              const option = new Option(`${employee.firstName} ${employee.lastName}`, employee.id);
-              responsibleSelect.add(option);
+            const option = new Option(
+              `${employee.firstName} ${employee.lastName}`, 
+              employee.id
+            );
+            option.innerHTML = `
+              <span>${employee.firstName} ${employee.lastName}</span>
+              <span class="option-email">${employee.email}</span>
+            `;
+            responsibleSelect.add(option);
           });
-      }      
-      return { accordion, recordNumber: data.recordNumber  };
-    }
+        } 
+        // Заполнение данных из существующей записи
+        if (data.existingRecord) {
+          const record = data.existingRecord;
+          
+          // Заполняем скрытые поля
+          accordion.dataset.recordId = record.id;
+          
+          // Устанавливаем выбранные значения
+          const typeSelect = accordion.querySelector('.record-type');
+          if (typeSelect) typeSelect.value = record.type;
 
-    function setupRecordEventHandlers(accordion, recordNumber) {
-      const typeSelect = accordion.querySelector('.record-type');
-      const textEditor = accordion.querySelector('.text-editor');
-      const dateInput = accordion.querySelector('.due-date');
-      const accordionTitle = accordion.querySelector('.accordion-title');
-      const accordionHeader = accordion.querySelector('.accordion-header');
-      const accordionContent = accordion.querySelector('.accordion-content');
-      const removeBtn = accordion.querySelector('.remove-record');
-      
-      // Обновление заголовка
-      const updateTitle = () => {
-        if (!accordionTitle) return;
-        
-        const type = typeSelect?.value || '';
-        let text = textEditor?.textContent.trim() || '';
-        const date = dateInput?.value || '';
-        
-        let title = `Запись ${recordNumber}`;
-        if (type) title += `. ${type}`;
-        if (text) {
-          text = text.substring(0, 20);
-          title += `: ${text}${text.length >= 20 ? '...' : ''}`;
+          // ... аналогично для других полей ...
         }
-        if (date) {
-          const [year, month, day] = date.split('-');
-          title += ` (${day}.${month}.${year})`;
-        }
+
+        return { accordion, recordNumber: data.recordNumber  };
+      }
+
+      function setupRecordEventHandlers(accordion, recordNumber) {
+        const typeSelect = accordion.querySelector('.record-type');
+        const textEditor = accordion.querySelector('.text-editor');
+        const dateInput = accordion.querySelector('.due-date');
+        const accordionTitle = accordion.querySelector('.accordion-title');
+        const accordionHeader = accordion.querySelector('.accordion-header');
+        const accordionContent = accordion.querySelector('.accordion-content');
+        const removeBtn = accordion.querySelector('.remove-record');
         
-        accordionTitle.textContent = title;
-      };
-      
-      // Управление доступностью полей
-      const updateFieldsAvailability = () => {
-        const type = typeSelect?.value || '';
-        const isReadOnly = ['Факт', 'Решение'].includes(type);
-        const importanceSelect = accordion.querySelector('.importance');
-        const prioritySelect = accordion.querySelector('.priority');
-        
-        if (importanceSelect && prioritySelect) {
-          importanceSelect.disabled = isReadOnly;
-          prioritySelect.disabled = isReadOnly;
-          if (isReadOnly) {
-            importanceSelect.value = '';
-            prioritySelect.value = '';
+        // Обновление заголовка
+        const updateTitle = () => {
+          if (!accordionTitle) return;
+          
+          const type = typeSelect?.value || '';
+          let text = textEditor?.textContent.trim() || '';
+          const date = dateInput?.value || '';
+          
+          let title = `Запись ${recordNumber}`;
+          if (type) title += `. ${type}`;
+          if (text) {
+            text = text.substring(0, 20);
+            title += `: ${text}${text.length >= 20 ? '...' : ''}`;
           }
-        }
-      };
-      
-      // Назначение обработчиков событий
-      if (typeSelect) {
-        typeSelect.addEventListener('change', () => {
-          updateFieldsAvailability();
-          updateTitle();
-        });
-      }
-      
-      if (textEditor) textEditor.addEventListener('input', updateTitle);
-      if (dateInput) dateInput.addEventListener('change', updateTitle);
-      
-      if (accordionHeader && accordionContent) {
-        accordionHeader.addEventListener('click', () => {
-          accordion.classList.toggle('active');
-          accordionContent.style.maxHeight = accordion.classList.contains('active') 
-            ? accordionContent.scrollHeight + 'px' 
-            : '0';
-        });
-      }
-      
-      if (removeBtn) {
-        removeBtn.addEventListener('click', function(e) {
-          e.stopPropagation();
-          if (document.querySelectorAll('.accordion').length > 1 || confirm('Удалить эту запись?')) {
-            this.closest('.accordion').remove();
-            updateRecordNumbers();
+          if (date) {
+            const [year, month, day] = date.split('-');
+            title += ` (${day}.${month}.${year})`;
           }
+          
+          accordionTitle.textContent = title;
+        };
+        
+        // Управление доступностью полей
+        const updateFieldsAvailability = () => {
+          const type = typeSelect?.value || '';
+          const isReadOnly = ['Факт', 'Решение'].includes(type);
+          const importanceSelect = accordion.querySelector('.importance');
+          const prioritySelect = accordion.querySelector('.priority');
+          
+          if (importanceSelect && prioritySelect) {
+            importanceSelect.disabled = isReadOnly;
+            prioritySelect.disabled = isReadOnly;
+            if (isReadOnly) {
+              importanceSelect.value = '';
+              prioritySelect.value = '';
+            }
+          }
+        };
+        
+        // Назначение обработчиков событий
+        if (typeSelect) {
+          typeSelect.addEventListener('change', () => {
+            updateFieldsAvailability();
+            updateTitle();
+          });
+
+        }
+        
+        if (textEditor) textEditor.addEventListener('input', updateTitle);
+        if (dateInput) dateInput.addEventListener('change', updateTitle);
+        
+        if (accordionHeader && accordionContent) {
+          accordionHeader.addEventListener('click', () => {
+            accordion.classList.toggle('active');
+            accordionContent.style.maxHeight = accordion.classList.contains('active') 
+              ? accordionContent.scrollHeight + 'px' 
+              : '0';
+          });
+        }
+        
+        if (removeBtn) {
+          removeBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            if (document.querySelectorAll('.accordion').length > 1 || confirm('Удалить эту запись?')) {
+              this.closest('.accordion').remove();
+              updateRecordNumbers();
+            }
+          });
+        }
+        
+        // Первоначальная инициализация
+        updateFieldsAvailability();
+        updateTitle();
+      }
+
+      function appendRecordToDOM(accordion) {
+        const container = document.getElementById('recordsContainer');
+        if (!container) return;
+        
+        container.appendChild(accordion);
+        accordion.classList.add('active');
+        
+        const content = accordion.querySelector('.accordion-content');
+        if (content) {
+          content.style.maxHeight = content.scrollHeight + 'px';
+        }
+      }
+
+      function updateRecordNumbers() {
+        document.querySelectorAll('.record-number').forEach((el, idx) => {
+          if (el) el.textContent = idx + 1;
         });
       }
-      
-      // Первоначальная инициализация
-      updateFieldsAvailability();
-      updateTitle();
-    }
 
-    function appendRecordToDOM(accordion) {
-      const container = document.getElementById('recordsContainer');
-      if (!container) return;
-      
-      container.appendChild(accordion);
-      accordion.classList.add('active');
-      
-      const content = accordion.querySelector('.accordion-content');
-      if (content) {
-        content.style.maxHeight = content.scrollHeight + 'px';
+      function handleLoadError(error, btn, originalText) {
+        console.error('Load error:', error);
+        alert('Ошибка загрузки данных');
+        resetButtonState(btn, originalText);
       }
-    }
 
-    function updateRecordNumbers() {
-      document.querySelectorAll('.record-number').forEach((el, idx) => {
-        if (el) el.textContent = idx + 1;
-      });
-    }
+      function resetButtonState(btn, originalText) {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = originalText;
+        }
+        isAddingRecord = false;
+      }
 
-    function handleLoadError(error, btn, originalText) {
-      console.error('Load error:', error);
-      alert('Ошибка загрузки данных');
-      resetButtonState(btn, originalText);
-    }
+      function createSpinnerHTML() {
+        return `
+          <span class="spinner" style="
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+          "></span>
+          Добавление...
+        `;
+      }
 
-    function resetButtonState(btn, originalText) {
-      if (btn) {
+      function addSpinnerStyles() {
+        if (document.querySelector('style.spinner-styles')) return;
+        
+        const style = document.createElement('style');
+        style.className = 'spinner-styles';
+        style.textContent = `
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `;
+        document.head.appendChild(style);
+      }
+
+      // Функция восстановления состояния кнопки
+      function resetButtonState(btn, originalText) {
         btn.disabled = false;
         btn.textContent = originalText;
+        isAddingRecord = false;
       }
-      isAddingRecord = false;
-    }
 
-    function createSpinnerHTML() {
-      return `
-        <span class="spinner" style="
-          display: inline-block;
-          width: 16px;
-          height: 16px;
-          border: 2px solid rgba(255,255,255,0.3);
-          border-radius: 50%;
-          border-top-color: white;
-          animation: spin 1s ease-in-out infinite;
-          margin-right: 8px;
-          vertical-align: middle;
-        "></span>
-        Добавление...
-      `;
-    }
+      function fillSelect(selectElement, options) {
+          if (!selectElement || !options) return;
+          
+          selectElement.innerHTML = ''; // Очищаем только если элемент существует
+          options.forEach(function(option) {
+              if (typeof option === 'string') {
+                  const element = document.createElement('option');
+                  element.value = option;
+                  element.textContent = option;
+                  selectElement.appendChild(element);
+              }
+          });
+      }
 
-    function addSpinnerStyles() {
-      if (document.querySelector('style.spinner-styles')) return;
-      
-      const style = document.createElement('style');
-      style.className = 'spinner-styles';
-      style.textContent = `
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-      `;
-      document.head.appendChild(style);
-    }
-
-    // Функция восстановления состояния кнопки
-    function resetButtonState(btn, originalText) {
-      btn.disabled = false;
-      btn.textContent = originalText;
-      isAddingRecord = false;
-    }
-
-    function fillSelect(selectElement, options) {
-        if (!selectElement || !options) return;
+      /**
+       * Показывает кастомное уведомление
+       * @param {string} message - Текст сообщения
+       * @param {boolean} isSuccess - Тип сообщения (true - успех, false - ошибка)
+       * @param {Function} [callback] - Функция обратного вызова после закрытия
+       */
+      function showNotification(message, isSuccess, callback) {
+        const modal = document.getElementById('notificationModal');
+        const messageEl = document.getElementById('notificationMessage');
+        const okButton = document.getElementById('notificationOK');
         
-        selectElement.innerHTML = ''; // Очищаем только если элемент существует
-        options.forEach(function(option) {
-            if (typeof option === 'string') {
-                const element = document.createElement('option');
-                element.value = option;
-                element.textContent = option;
-                selectElement.appendChild(element);
-            }
-        });
-    }
+        if (!modal || !messageEl || !okButton) {
+          // Fallback на стандартный alert
+          alert(message);
+          if (callback) callback();
+          return;
+        }
+        
+        // Настройка стилей по типу сообщения
+        messageEl.textContent = message;
+        messageEl.style.color = isSuccess ? '#0f9d58' : '#d93025';
+        
+        // Обработчик закрытия
+        const closeHandler = () => {
+          modal.style.display = 'none';
+          if (callback) callback();
+        };
+        
+        // Назначаем обработчики
+        okButton.onclick = closeHandler;
+        
+        // Показываем модальное окно
+        modal.style.display = 'flex';
+        
+        // Автозакрытие для успешных сообщений
+        if (isSuccess) {
+          setTimeout(closeHandler, 3000);
+        }
+      }      
     
-    function saveAllRecords() {
-      const saveBtn = document.getElementById('saveAllBtn');
-      const addBtn = document.getElementById('addRecordBtn');
-      const originalText = saveBtn.textContent;
-      
-      // Деактивируем обе кнопки
-      saveBtn.disabled = true;
-      addBtn.disabled = true;
-      saveBtn.innerHTML = '<span class="spinner"></span> Сохранение...';
-      
-      const accordions = document.querySelectorAll('.accordion');
-      const recordsData = [];
-      let hasErrors = false;
+      function saveAllRecords() {
+        const saveBtn = document.getElementById('saveAllBtn');
+        const addBtn = document.getElementById('addRecordBtn');
+        const originalText = saveBtn.textContent;
+        
+        // Деактивируем обе кнопки
+        saveBtn.disabled = true;
+        addBtn.disabled = true;
+        saveBtn.innerHTML = '<span class="spinner"></span> Сохранение...';
+        
+        const accordions = document.querySelectorAll('.accordion');
+        const recordsData = [];
+        let hasErrors = false;
 
-      // Используем один цикл по аккордеонам
-      accordions.forEach((accordion, index) => {
-        try {
-          const recordElement = accordion.querySelector('.record');
-          const recordNumber = index + 1;
-          const type = recordElement.querySelector('.record-type').value;
-          const text = recordElement.querySelector('.text-editor').innerHTML;
+        // Используем один цикл по аккордеонам
+        accordions.forEach((accordion, index) => {
+          try {
+            const recordElement = accordion.querySelector('.record');
+            const recordNumber = index + 1;
+            const type = recordElement.querySelector('.record-type').value;
+            const text = recordElement.querySelector('.text-editor').innerHTML;
 
-          // Получаем и форматируем дату
-          const dateInput = recordElement.querySelector('.due-date').value;
-          let formattedDate = '';
-          if (dateInput) {
-            const [year, month, day] = dateInput.split('-');
-            formattedDate = `${day}-${month}-${year}`; // Формат DD-MM-YYYY
+            // Получаем и форматируем дату
+            const dateInput = recordElement.querySelector('.due-date').value;
+            let formattedDate = '';
+            if (dateInput) {
+              const [year, month, day] = dateInput.split('-');
+              formattedDate = `${day}-${month}-${year}`; // Формат DD-MM-YYYY
+            }
+
+            const responsible = Array.from(recordElement.querySelector('.responsible').selectedOptions)
+              .map(option => option.value);
+            
+            // Для типов "Факт" и "Решение" не проверяем важность и приоритет
+            const shouldCheckPriority = !['Факт', 'Решение'].includes(type);
+            const importance = shouldCheckPriority ? recordElement.querySelector('.importance').value : '';
+            const priority = shouldCheckPriority ? recordElement.querySelector('.priority').value : '';
+
+            // Проверяем обязательные поля
+            if (!type || !text || !formattedDate || responsible.length === 0 || 
+                (shouldCheckPriority && (!importance || !priority))) {
+              throw new Error(`Не все поля заполнены в записи ${recordNumber}`);
+            }    
+
+            recordsData.push({
+              recordNumber: recordNumber,
+              type: type,
+              text: text,
+              dueDate: formattedDate,
+              responsible: responsible,
+              importance: importance,
+              priority: priority
+            });
+
+          } catch (error) {
+            console.error(`Ошибка в записи ${index + 1}:`, error.message);
+            hasErrors = true;
           }
 
-          const responsible = Array.from(recordElement.querySelector('.responsible').selectedOptions)
-            .map(option => option.value);
-          
-          // Для типов "Факт" и "Решение" не проверяем важность и приоритет
-          const shouldCheckPriority = !['Факт', 'Решение'].includes(type);
-          const importance = shouldCheckPriority ? recordElement.querySelector('.importance').value : '';
-          const priority = shouldCheckPriority ? recordElement.querySelector('.priority').value : '';
+        });
 
-          // Проверяем обязательные поля
-          if (!type || !text || !formattedDate || responsible.length === 0 || 
-              (shouldCheckPriority && (!importance || !priority))) {
-            throw new Error(`Не все поля заполнены в записи ${recordNumber}`);
-          }    
-
-          recordsData.push({
-            recordNumber: recordNumber,
-            type: type,
-            text: text,
-            dueDate: formattedDate,
-            responsible: responsible,
-            importance: importance,
-            priority: priority
-          });
-
-        } catch (error) {
-          console.error(`Ошибка в записи ${index + 1}:`, error.message);
-          hasErrors = true;
+        if (hasErrors || recordsData.length === 0) {
+          alert(hasErrors ? 
+            'Некоторые записи содержат ошибки. Проверьте консоль для подробностей.' : 
+            'Нет записей для сохранения');
+          saveBtn.disabled = false;
+          addBtn.disabled = false;
+          saveBtn.textContent = 'Сохранить все';
+          return;
         }
 
-      });
+        google.script.run
+          .withSuccessHandler(() => {
+            showNotification(
+              `✅ Успешно сохранено ${recordsData.length} записей`,
+              true,
+              () => {
+                saveBtn.disabled = false;
+                addBtn.disabled = false;
+                saveBtn.textContent = originalText;
+                google.script.host.close();
+              }
+            );
+          })
+          .withFailureHandler(error => {
+            showNotification(
+              `❌ Ошибка сохранения: ${error.message}`,
+              false,
+              () => {
+                saveBtn.disabled = false;
+                addBtn.disabled = false;
+                saveBtn.textContent = originalText;
+              }
+            );
+          })
+          .createRecords(recordsData);
 
-      if (hasErrors || recordsData.length === 0) {
-        alert(hasErrors ? 
-          'Некоторые записи содержат ошибки. Проверьте консоль для подробностей.' : 
-          'Нет записей для сохранения');
-        saveBtn.disabled = false;
-        addBtn.disabled = false;
-        saveBtn.textContent = 'Сохранить все';
-        return;
       }
 
-      google.script.run
-        .withSuccessHandler(() => {
-          alert(`Успешно сохранено ${recordsData.length} записей`);
-          saveBtn.disabled = false;
-          addBtn.disabled = false;
-          saveBtn.textContent = originalText;
-          google.script.host.close();
-        })
-        .withFailureHandler(error => {
-          alert(`Ошибка сохранения: ${error.message}`);
-          saveBtn.disabled = false;
-          addBtn.disabled = false;
-          saveBtn.textContent = originalText;
-        })
-        .createRecords(recordsData);
-    }      
+      // Запускаем инициализацию
+      try {
+        loadGlobalData();
+        initializeForm();
+
+      } catch (error) {
+        console.error('Ошибка инициализации:', error);
+        showAlert('Критическая ошибка: ' + error.message, false);
+      }
+
+    });      
 
   </script>
+
+  <!-- Модальное окно для уведомлений -->
+  <div id="notificationModal" class="custom-alert" style="display: none;">
+    <div class="custom-alert-content">
+      <div class="custom-alert-message" id="notificationMessage"></div>
+      <button class="custom-alert-button" id="notificationOK">OK</button>
+    </div>
+  </div>  
+
 </body>
 </html>

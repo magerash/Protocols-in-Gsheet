@@ -951,18 +951,20 @@
           const attendees = Array.from(window.selectedEmails || []);
           const location = document.getElementById('location').value.trim();
 
+
+          // Формируем данные встречи ДО отправки
+          const meetingData = {
+            meetingNumber: window.currentMeetingNumber,
+            topic: topic,
+            attendees: attendees,
+            date: date,
+            location: location
+
+
           try {
             if (!topic) throw new Error("Введите тему встречи");
             if (!date) throw new Error("Выберите дату и время");
             if (attendees.length === 0) throw new Error("Добавьте участников");
-
-            const meetingData = {
-              meetingNumber: window.currentMeetingNumber,
-              topic: topic,
-              attendees: attendees,
-              date: date,
-              location: location
-            };
 
             google.script.run
               .withSuccessHandler(function(response) {
@@ -972,9 +974,21 @@
                 setTimeout(function() {
                   google.script.host.close();
                 }, 500);
+
+
+                const payload = {
+                  id: response.id,
+                  number: response.number,
+                  topic: topic,
+                  attendees: attendees,
+                  date: date,
+                  location: location
+                };
+
                 google.script.run
                   .withSuccessHandler(() => {})
-                  .showRecordDialog(response.id, response.number);
+                  .showRecordDialog(JSON.stringify(payload)); // Передаем meetingData
+
               })
               .withFailureHandler(function(error) {
                 showAlert("Ошибка: " + error.message, false);
@@ -988,6 +1002,7 @@
               //   }
               // });
               .createMeeting(meetingData);
+
           } catch (error) {
             showAlert(error.message, false);
             btn.disabled = false;

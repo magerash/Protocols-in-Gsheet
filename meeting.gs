@@ -262,7 +262,9 @@ function createMeeting(meetingData) {
       meetingData.topic,
       formattedNames.join(', '),
       attendeeIds.join(', '),
-      meetingData.location
+      meetingData.location, 
+      new Date().toISOString(), // Дата создания
+      new Date().toISOString()  // Дата изменения
     ]);
 
 
@@ -354,19 +356,21 @@ function getMeetingById(meetingId) {
   const cache = CacheService.getScriptCache();
   const cacheKey = `meeting_${meetingId}`;
   const cachedData = cache.get(cacheKey); // Проверка кэша
+  const sheet = SpreadsheetApp.getActive().getSheetByName('Встречи');
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0].map(h => h.trim().toLowerCase()); // Нормализуем заголовки. Все в нижний регистр
+  const createdCol = headers.indexOf('Дата создания');
+  const modifiedCol = headers.indexOf('Дата изменения');
+
   if (cachedData) {
     console.log('Данные из кэша:', cachedData);
     return JSON.parse(cachedData);
   }
 
-  const sheet = SpreadsheetApp.getActive().getSheetByName('Встречи');
-  const data = sheet.getDataRange().getValues();
   // Явная проверка доступа
   if (!sheet.getSheetId()) {
     throw new Error('Нет доступа к листу "Встречи"');
   }
-  // Нормализуем заголовки
-  const headers = data[0].map(h => h.trim().toLowerCase()); // Все в нижний регистр
 
   // Получаем индексы с защитой от -1
   const getHeaderIndex = (name) => {
@@ -429,16 +433,8 @@ function getMeetingById(meetingId) {
       displayNames: meeting[attendeesIndex]?.split(',').map(e => e.trim()) || []
     },
     meta: {
-      created: Utilities.formatDate(
-        new Date(), 
-        Session.getScriptTimeZone(), 
-        "yyyy-MM-dd'T'HH:mm:ss'Z'"
-      ),
-      lastModified: Utilities.formatDate(
-        new Date(), 
-        Session.getScriptTimeZone(), 
-        "yyyy-MM-dd'T'HH:mm:ss'Z'"
-      )
+    created: meeting[createdCol],
+    lastModified: meeting[modifiedCol]
     }
   };
   console.log('Результат:', JSON.stringify(result, null, 2));
@@ -449,7 +445,7 @@ function getMeetingById(meetingId) {
 }
 
 function testGetMeeting() {
-  getMeetingById('783237e5-e024-4f79-b2a0-0e2b55f8a7d4');
+  getMeetingById('5b9d96bd-ac2c-4154-8a4a-fcdec4dccaa2');
 }
 
 /**
@@ -777,6 +773,98 @@ function formatDate(dateValue) {
     return dateValue.toString();
   } catch (e) {
     return dateValue.toString();
+  }
+}
+
+/** CRUD */
+
+function updateMeeting(meetingId, updateData) {
+  const sheet = SpreadsheetApp.getActive().getSheetByName('Встречи');
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  
+  const idCol = headers.indexOf('ID встречи');
+  const lastModifiedCol = headers.indexOf('Дата изменения');
+  
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][idCol] === meetingId) {
+      // Обновляем данные
+      Object.keys(updateData).forEach(key => {
+        const colIndex = headers.indexOf(key);
+        if (colIndex > -1) sheet.getRange(i+1, colIndex+1).setValue(updateData[key]);
+      });
+      
+      // Обновляем дату изменения
+      if (lastModifiedCol > -1) {
+        sheet.getRange(i+1, lastModifiedCol+1)
+          .setValue(new Date().toISOString());
+      }
+      
+      CacheService.getScriptCache().remove(`meeting_${meetingId}`);
+      return true;
+    }
+  }
+  throw new Error('Meeting not found');
+}
+
+function deleteMeeting(meetingId) {
+  const sheet = SpreadsheetApp.getActive().getSheetByName('Встречи');
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  
+  const idCol = headers.indexOf('ID встречи');
+  
+  for (let i = data.length-1; i > 0; i--) {
+    if (data[i][idCol] === meetingId) {
+      sheet.deleteRow(i+1);
+      
+      // Удаляем связанные записи
+      deleteRecordsByMeetingId(meetingId);
+      
+      CacheService.getScriptCache().remove(`meeting_${meetingId}`);
+      return true;
+    }
+  }
+  throw new Error('Meeting not found');
+}
+
+function deleteRecordsByMeetingId(meetingId) {
+  const sheet = SpreadsheetApp.getActive().getSheetByName('Записи');
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  
+  const meetingIdCol = headers.indexOf('ID встречи');
+  
+  // Удаляем с конца чтобы избежать смещения индексов
+  for (let i = data.length-1; i > 0; i--) {
+    if (data[i][meetingIdCol] === meetingId) {
+      sheet.deleteRow(i+1);
+    }
+  }
+}
+
+/ Тест обновления встречи*/
+function testUpdateMeeting() {
+  const testId = '65d35e3e-3645-4fe8-b55c-22c49d80e60c';
+  const newTopic = 'Итоги спринта';
+  
+  updateMeeting(testId, { 'Тема встречи': newTopic });
+  const updated = getMeetingById(testId);
+  
+  if (updated.topic !== newTopic) {
+    throw new Error('Update failed');
+  }
+}
+
+/ Тест каскадного удаления */
+function testDeleteMeeting() {
+  const testId = 'd1e7ff68-8e2a-448e-99b5-116e2116dd42';
+  
+  deleteMeeting(testId);
+  const records = getRecordsByMeetingId(testId);
+  
+  if (records.length > 0) {
+    throw new Error('Cascade delete failed');
   }
 }
 

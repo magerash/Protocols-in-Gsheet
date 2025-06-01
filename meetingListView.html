@@ -293,6 +293,13 @@
       </div>
             
       <button class="button" id="applyFilter">Применить фильтр</button>
+
+      <button class="action-button edit-meeting" data-id="${meeting.id}">Изменить
+        <svg>...</svg>
+      </button>
+      <button class="action-button delete-meeting" data-id="${meeting.id}">Удалить
+        <svg>...</svg>
+      </button>
     </div>
   </div>
   
@@ -452,6 +459,20 @@
           if (!e.target.closest('.custom-select-container')) {
             document.getElementById('dropdownContent').classList.remove('show');
           }
+          if (e.target.closest('.edit-meeting')) {
+            const id = e.target.closest('button').dataset.id;
+            openEditMeetingDialog(id);
+          }
+          
+          if (e.target.closest('.delete-meeting')) {
+            const id = e.target.closest('button').dataset.id;
+            if (confirm('Удалить встречу и все записи?')) {
+              google.script.run
+                .withSuccessHandler(() => loadMeetings())
+                .deleteMeeting(id);
+            }
+          }
+
         });
         
         // Первоначальная отрисовка

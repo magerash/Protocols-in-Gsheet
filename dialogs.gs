@@ -5,6 +5,7 @@ function onOpen() {
   ui.createMenu('Протоколы')
     .addItem('Создать протокол встречи', 'showMeetingTypeSelector')
     .addItem('Окно записей', 'showRecordDialog')
+    .addItem('Просмотр встреч', 'showMeetingListView') // Новый пункт
     .addSeparator()
     .addItem('Обновить кэш сотрудников', 'clearEmployeeCache') // Новая кнопка
     .addToUi();
@@ -113,4 +114,12 @@ function showMeetingTypeSelector() {
     .setWidth(650)
     .setHeight(450);
   SpreadsheetApp.getUi().showModalDialog(html, 'Создание встречи');
+}
+
+// Функция открытия списка встреч
+function showMeetingListView() {
+  const html = HtmlService.createHtmlOutputFromFile('meetingListView')
+    .setWidth(1200)
+    .setHeight(800);
+  SpreadsheetApp.getUi().showModalDialog(html, 'Просмотр встреч');
 }

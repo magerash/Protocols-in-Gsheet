@@ -1,0 +1,684 @@
+<!-- файл: meetingListView -->
+
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    body {
+      font-family: 'Roboto', Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      color: #202124;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 15px;
+      border-bottom: 1px solid #dadce0;
+    }
+    h1 {
+      font-size: 24px;
+      font-weight: 500;
+      margin: 0;
+      color: #202124;
+    }
+    .filter-section {
+      background-color: #f8f9fa;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 25px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+    }
+    .filter-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+    .filter-title {
+      font-size: 18px;
+      font-weight: 500;
+      color: #202124;
+    }
+    .filter-toggle {
+      background: none;
+      border: none;
+      color: #1a73e8;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .filter-content {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 15px;
+    }
+    .attendee-filter {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+    }
+    .input-container {
+      margin-bottom: 15px;
+    }
+    .input-label {
+      display: block;
+      font-size: 14px;
+      margin-bottom: 8px;
+      color: #5f6368;
+    }
+    .search-input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #dadce0;
+      border-radius: 4px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    .button {
+      background-color: #1a73e8;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 10px 24px;
+      font-size: 14px;
+      cursor: pointer;
+      height: fit-content;
+      align-self: end;
+    }
+    .button:hover {
+      background-color: #1765cc;
+    }
+    
+    /* Таблица встреч */
+    .meetings-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 20px;
+    }
+    .meetings-table th {
+      background-color: #f8f9fa;
+      text-align: left;
+      padding: 12px 15px;
+      font-weight: 500;
+      color: #202124;
+      border-bottom: 2px solid #dadce0;
+    }
+    .meetings-table td {
+      padding: 12px 15px;
+      border-bottom: 1px solid #dadce0;
+      vertical-align: top;
+    }
+    .meeting-row:hover {
+      background-color: #f8f9fa;
+      cursor: pointer;
+    }
+    .view-button {
+      color: #1a73e8;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+      padding: 5px;
+    }
+    
+    /* Аккордеон записей */
+    .records-accordion {
+      background-color: #fff;
+      border: 1px solid #dadce0;
+      border-radius: 8px;
+      overflow: hidden;
+      margin-top: 10px;
+      display: none;
+    }
+    .records-accordion.active {
+      display: block;
+    }
+    .records-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .records-table th {
+      background-color: #f1f3f4;
+      padding: 10px 15px;
+      text-align: left;
+      font-weight: 500;
+      font-size: 13px;
+    }
+    .records-table td {
+      padding: 10px 15px;
+      border-bottom: 1px solid #eaeaea;
+      vertical-align: top;
+    }
+    .record-row:nth-child(odd) {
+      background-color: #fafafa;
+    }
+    
+    /* Стили для выпадающего списка участников */
+    .employee-option {
+      padding: 8px 12px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .employee-option:hover {
+      background-color: #f5f5f5;
+    }
+    .employee-name {
+      flex-grow: 1;
+    }
+    .employee-email {
+      color: #5f6368;
+      font-size: 0.85em;
+      margin-left: 10px;
+      text-align: right;
+    }
+    .custom-select-container {
+      position: relative;
+      margin-bottom: 16px;
+    }
+    .custom-select {
+      border: 1px solid #dadce0;
+      border-radius: 4px;
+      padding: 10px;
+      cursor: pointer;
+      background: white;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .selected-options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      flex-grow: 1;
+    }
+    .dropdown-arrow {
+      margin-left: 8px;
+    }
+    .dropdown-content {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      max-height: 300px;
+      overflow-y: auto;
+      background: white;
+      border: 1px solid #dadce0;
+      border-radius: 0 0 4px 4px;
+      z-index: 100;
+    }
+    .dropdown-content.show {
+      display: block;
+    }
+    .dropdown-search-container {
+      padding: 8px;
+      position: sticky;
+      top: 0;
+      background: white;
+      z-index: 2;
+      border-bottom: 1px solid #eee;
+    }
+    .dropdown-search {
+      width: 100%; /* Занимает всю доступную ширину */
+      padding: 12px 15px; /* Увеличиваем отступы */
+      font-size: 16px; /* Увеличиваем размер шрифта */
+    }    
+    .options-container {
+      max-height: 250px;
+      overflow-y: auto;
+    }
+    .selected-tag {
+      background: #e8f0fe;
+      padding: 2px 8px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+    }
+    .selected-tag .remove-tag {
+      margin-left: 4px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Просмотр встреч</h1>
+  </div>
+  
+  <div class="filter-section">
+    <div class="filter-header">
+      <div class="filter-title">Фильтры</div>
+      <button class="filter-toggle" id="toggleFilters">Скрыть фильтры</button>
+    </div>
+    
+    <div class="filter-content" id="filterContent">
+      <div class="attendee-filter">        
+        <div class="custom-select-container">
+          <label class="input-label">Участники</label>
+          <div class="custom-select" id="attendeesDropdown" tabindex="0">
+            <div class="selected-options" id="selectedOptions"></div>
+            <div class="dropdown-arrow">▼</div>
+          </div>
+          <div class="dropdown-content" id="dropdownContent">
+            <div class="dropdown-search-container">
+              <input type="text" class="dropdown-search" placeholder="Поиск" id="dropdownSearch">
+            </div>
+            <div class="options-container" id="optionsContainer"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="organization-filter">
+        <div class="input-container">
+          <label class="input-label">Фильтры по организации</label>
+          <div class="filter-group">
+            <select id="organizationFilter" class="filter-select">
+              <option value="">Все организации</option>
+            </select>
+            <select id="departmentFilter" class="filter-select">
+              <option value="">Все подразделения</option>
+            </select>
+            <select id="unitFilter" class="filter-select">
+              <option value="">Все отделы</option>
+            </select>
+          </div>
+        </div>
+      </div>
+            
+      <button class="button" id="applyFilter">Применить фильтр</button>
+    </div>
+  </div>
+  
+  <div id="loading" style="text-align: center; padding: 20px;">
+    <div class="spinner" style="
+      display: inline-block;
+      width: 24px;
+      height: 24px;
+      border: 3px solid #f1f3f4;
+      border-top: 3px solid #1a73e8;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-right: 8px;
+      vertical-align: middle;
+    "></div>
+    <span>Загрузка встреч...</span>
+  </div>
+  
+  <table class="records-table">
+    <thead>
+      <tr>
+        <th width="10%">Тип записи</th>
+        <th width="40%">Текст записи</th>
+        <th width="10%">Срок</th>
+        <th width="20%">Ответственные</th>
+        <th width="10%">Значимость</th>
+        <th width="10%">Приоритет</th>
+      </tr>
+    </thead>
+    <tbody id="records-${meetingId}"></tbody>
+  </table>
+
+  <script>
+    let meetingsCache = null;
+    let recordsCache = {};    
+
+    document.addEventListener('DOMContentLoaded', function() {
+      // Глобальные переменные
+      let allEmployees = [];
+      let selectedAttendeeIds = [];
+      let meetingsData = [];
+      
+      // Инициализация
+      loadEmployees();
+      
+      // Загрузка сотрудников
+      function loadEmployees() {
+        google.script.run
+          .withSuccessHandler(employees => {
+            allEmployees = employees;
+            initAttendeeFilter();
+            loadMeetings();
+          })
+          .withFailureHandler(error => {
+            console.error('Ошибка загрузки сотрудников:', error);
+            document.getElementById('loading').innerHTML = 
+              '<div style="color: #d93025;">Ошибка загрузки данных</div>';
+          })
+          .getEmployees();
+      }
+      
+      // Инициализация фильтра участников
+      function initAttendeeFilter() {
+        const attendeesDropdown = document.getElementById('attendeesDropdown');
+        const optionsContainer = document.getElementById('optionsContainer');
+        const selectedOptions = document.getElementById('selectedOptions');
+        const dropdownSearch = document.getElementById('dropdownSearch');
+        const attendeeSearch = document.getElementById('attendeeSearch');
+        
+        // Функция отрисовки опций
+        function renderOptions(searchTerm = '') {
+          optionsContainer.innerHTML = '';
+          
+          const filtered = allEmployees.filter(employee => {
+            const search = searchTerm.toLowerCase();
+            const name = `${employee.firstName} ${employee.lastName}`.toLowerCase();
+            const email = employee.email.toLowerCase();
+            return name.includes(search) || email.includes(search);
+          });
+          
+          filtered.forEach(employee => {
+            const option = document.createElement('div');
+            option.className = 'employee-option';
+            option.dataset.id = employee.id;
+            
+            const firstNameInitial = employee.firstName ? 
+                  employee.firstName[0].toUpperCase() + '.' : '';
+            const formattedName = `${firstNameInitial} ${employee.lastName}`;
+            
+            option.innerHTML = `
+              <span class="employee-name">${formattedName}</span>
+              <span class="employee-email">${employee.email}</span>
+            `;
+            
+            option.addEventListener('click', function() {
+              const id = this.dataset.id;
+              if (!selectedAttendeeIds.includes(id)) {
+                selectedAttendeeIds.push(id);
+                updateSelectedOptions();
+              }
+            });
+            
+            optionsContainer.appendChild(option);
+          });
+        }
+        
+        // Обновление выбранных вариантов
+        function updateSelectedOptions() {
+          selectedOptions.innerHTML = '';
+          
+          selectedAttendeeIds.forEach(id => {
+            const employee = allEmployees.find(e => e.id === id);
+            if (employee) {
+              const firstNameInitial = employee.firstName ? 
+                    employee.firstName[0].toUpperCase() + '.' : '';
+              const formattedName = `${firstNameInitial} ${employee.lastName}`;
+              
+              const tag = document.createElement('div');
+              tag.className = 'selected-tag';
+              tag.innerHTML = `
+                ${formattedName}
+                <span class="remove-tag" data-id="${id}">×</span>
+              `;
+              selectedOptions.appendChild(tag);
+            }
+          });
+          
+          // Обработчики удаления
+          document.querySelectorAll('.remove-tag').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+              e.stopPropagation();
+              const id = this.dataset.id;
+              selectedAttendeeIds = selectedAttendeeIds.filter(item => item !== id);
+              updateSelectedOptions();
+            });
+          });
+        }
+        
+        // Обработчики событий
+        attendeesDropdown.addEventListener('click', function() {
+          document.getElementById('dropdownContent').classList.toggle('show');
+          if (document.getElementById('dropdownContent').classList.contains('show')) {
+            renderOptions();
+            dropdownSearch.focus();
+          }
+        });
+        
+        dropdownSearch.addEventListener('input', function() {
+          renderOptions(this.value);
+        });
+        
+        attendeeSearch.addEventListener('input', function() {
+          renderOptions(this.value);
+        });
+        
+        document.addEventListener('click', function(e) {
+          if (!e.target.closest('.custom-select-container')) {
+            document.getElementById('dropdownContent').classList.remove('show');
+          }
+        });
+        
+        // Первоначальная отрисовка
+        renderOptions();
+        updateSelectedOptions();
+      }
+      
+      // Загрузка встреч
+      function loadMeetings() {
+        if (meetingsCache) {
+          renderMeetings(meetingsCache);
+          document.getElementById('loading').style.display = 'none';
+          document.getElementById('meetingsContainer').style.display = 'block';
+          return;
+        }        
+        google.script.run
+          .withSuccessHandler(meetings => {
+            meetingsCache = meetings;
+            renderMeetings(meetings);
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('meetingsContainer').style.display = 'block';
+          })
+          .withFailureHandler(error => {
+            console.error('Ошибка загрузки встреч:', error);
+            document.getElementById('loading').innerHTML = 
+              '<div style="color: #d93025;">Ошибка загрузки встреч</div>';
+          })
+          .getAllMeetings();
+      }
+      
+      // Отображение встреч
+      function renderMeetings(meetings) {
+        const container = document.getElementById('meetingsList');
+        container.innerHTML = '';
+        
+        meetings.forEach(meeting => {
+          const row = document.createElement('tr');
+          row.className = 'meeting-row';
+          row.dataset.id = meeting.id;
+          
+          // Форматирование даты
+          const date = new Date(meeting.date);
+          const formattedDate = date.toLocaleDateString('ru-RU', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+          });
+          
+          // Форматирование участников
+          const attendees = meeting.attendees.displayNames.join(', ');
+          const shortAttendees = attendees.length > 50 ? 
+            attendees.substring(0, 47) + '...' : attendees;
+          
+          row.innerHTML = `
+            <td>${formattedDate}</td>
+            <td>${meeting.number}</td>
+            <td>${meeting.topic}</td>
+            <td title="${attendees}">${shortAttendees}</td>
+            <td>
+              <button class="view-button" data-id="${meeting.id}">Просмотр</button>
+            </td>
+          `;
+          
+          container.appendChild(row);
+        });
+        
+        // Обработчики кнопок просмотра
+        document.querySelectorAll('.view-button').forEach(btn => {
+          btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            toggleMeetingDetails(this.dataset.id);
+          });
+        });
+        
+        // Обработчики строк таблицы
+        document.querySelectorAll('.meeting-row').forEach(row => {
+          row.addEventListener('click', function() {
+            toggleMeetingDetails(this.dataset.id);
+          });
+        });
+      }
+      
+      // Переключение отображения записей встречи
+      function toggleMeetingDetails(meetingId) {
+        const accordion = document.querySelector(`.records-accordion[data-meeting="${meetingId}]`);
+        
+        if (accordion) {
+          // Если аккордеон уже существует, просто переключаем его
+          accordion.classList.toggle('active');
+        } else {
+          // Загружаем записи встречи
+          loadMeetingRecords(meetingId);
+        }
+      }
+      
+      // Загрузка записей встречи
+      function loadMeetingRecords(meetingId) {
+        if (recordsCache[meetingId]) {
+          renderMeetingRecords(meetingId, recordsCache[meetingId]);
+          return;
+        }        
+        const loadingRow = document.createElement('tr');
+        loadingRow.innerHTML = `
+          <td colspan="5" style="text-align: center;">
+            <div class="spinner" style="
+              display: inline-block;
+              width: 20px;
+              height: 20px;
+              border: 2px solid #f1f3f4;
+              border-top: 2px solid #1a73e8;
+              border-radius: 50%;
+              animation: spin 1s linear infinite;
+              margin-right: 8px;
+              vertical-align: middle;
+            "></div>
+            Загрузка записей...
+          </td>
+        `;
+        
+        const meetingRow = document.querySelector(`.meeting-row[data-id="${meetingId}"]`);
+        meetingRow.parentNode.insertBefore(loadingRow, meetingRow.nextSibling);
+        
+        google.script.run
+          .withSuccessHandler(records => {
+            recordsCache[meetingId] = records; // Сохраняем в кэш
+            renderMeetingRecords(meetingId, records);
+            // loadingRow.remove();
+            renderMeetingRecords(meetingId, records);
+          })
+          .withFailureHandler(error => {
+            loadingRow.innerHTML = `<td colspan="5" style="color: #d93025; text-align: center;">
+              Ошибка загрузки записей: ${error.message}
+            </td>`;
+          })
+          .getRecordsByMeetingId(meetingId);
+      }
+      
+      // Отображение записей встречи
+      function renderMeetingRecords(meetingId, records) {
+        const meetingRow = document.querySelector(`.meeting-row[data-id="${meetingId}"]`);
+        
+        // Создаем аккордеон
+        const accordion = document.createElement('tr');
+        accordion.className = 'records-accordion active';
+        accordion.dataset.meeting = meetingId;
+        accordion.innerHTML = `
+          <td colspan="5">
+            <table class="records-table">
+              <thead>
+                <tr>
+                  <th>Тип записи</th>
+                  <th>Текст записи</th>
+                  <th>Срок</th>
+                  <th>Ответственные</th>
+                  <th>Значимость</th>
+                  <th>Приоритет</th>
+                </tr>
+              </thead>
+              <tbody id="records-${meetingId}"></tbody>
+            </table>
+          </td>
+        `;
+        
+        meetingRow.parentNode.insertBefore(accordion, meetingRow.nextSibling);
+        
+        // Добавляем записи
+        const recordsContainer = document.getElementById(`records-${meetingId}`);
+        records.forEach(record => {
+          const row = document.createElement('tr');
+          row.className = 'record-row';
+          
+          // Форматирование ответственных
+          const responsible = Array.isArray(record.responsible) ? 
+                record.responsible.join(', ') : record.responsible;
+          
+          row.innerHTML = `
+            <td>${record.type}</td>
+            <td>${record.text}</td>
+            <td>${record.dueDate}</td>
+            <td>${responsible}</td>
+            <td>${record.status.importance}</td>
+            <td>${record.status.priority}</td>
+          `;
+          
+          recordsContainer.appendChild(row);
+        });
+      }
+      
+      // Применение фильтра
+      document.getElementById('applyFilter').addEventListener('click', function() {
+        document.getElementById('loading').style.display = 'block';
+        document.getElementById('meetingsContainer').style.display = 'none';
+        
+        google.script.run
+          .withSuccessHandler(meetings => {
+            meetingsData = meetings;
+            renderMeetings(meetings);
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('meetingsContainer').style.display = 'block';
+          })
+          .getMeetingsByAttendee(selectedAttendeeIds);
+      });
+      
+      // Переключение видимости фильтров
+      document.getElementById('toggleFilters').addEventListener('click', function() {
+        const content = document.getElementById('filterContent');
+        const isVisible = content.style.display !== 'none';
+        
+        if (isVisible) {
+          content.style.display = 'none';
+          this.textContent = 'Показать фильтры';
+        } else {
+          content.style.display = 'grid';
+          this.textContent = 'Скрыть фильтры';
+        }
+      });
+      
+      // Стили для анимации спиннера
+      const style = document.createElement('style');
+      style.textContent = `
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `;
+      document.head.appendChild(style);
+    });
+  </script>
+</body>
+</html>

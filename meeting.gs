@@ -650,3 +650,133 @@ function testEmployeesByID() {
   console.log('Found employees:', employees.length);
   console.log(JSON.stringify(employees, null, 2));
 }
+
+/** Для meetingListView 
+  * Получение всех встреч */
+function getAllMeetings() {
+  const cache = CacheService.getScriptCache();
+  const cacheKey = 'all_meetings';
+  
+  // Проверка кэша
+  const cachedData = cache.get(cacheKey);
+  if (cachedData) {
+    return JSON.parse(cachedData);
+  }
+  
+  const sheet = SpreadsheetApp.getActive().getSheetByName('Встречи');
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0].map(h => h.toString().toLowerCase());
+  
+  const idIndex = headers.indexOf('id встречи');
+  const numberIndex = headers.indexOf('номер встречи');
+  const dateIndex = headers.indexOf('дата');
+  const topicIndex = headers.indexOf('тема встречи');
+  const attendeesIndex = headers.indexOf('участники');
+  const attendeesIdIndex = headers.indexOf('id участников');
+  
+  const meetings = data.slice(1).map(row => {
+    const meetingDate = new Date(row[dateIndex]);
+    
+    return {
+      id: row[idIndex],
+      number: row[numberIndex],
+      date: isNaN(meetingDate.getTime()) ? '' : meetingDate.toISOString(),
+      topic: row[topicIndex],
+      attendees: {
+        displayNames: row[attendeesIndex] ? row[attendeesIndex].split(',').map(n => n.trim()) : [],
+        ids: row[attendeesIdIndex] ? row[attendeesIdIndex].split(',').map(id => id.trim()) : []
+      }
+    };
+  }).filter(meeting => meeting.id);
+  
+  // Кэшируем на 5 минут
+  cache.put(cacheKey, JSON.stringify(meetings), 300);
+  
+  return meetings;
+}
+
+/ Получение встреч по участникам */  
+function getMeetingsByAttendee(attendeeIds) {
+  const allMeetings = getAllMeetings();
+  
+  if (!attendeeIds || attendeeIds.length === 0) {
+    return allMeetings;
+  }
+  
+  return allMeetings.filter(meeting => {
+    return meeting.attendees.ids.some(id => attendeeIds.includes(id));
+  });
+}
+
+/ Получение записей встречи */
+function getRecordsByMeetingId(meetingId) {
+  const cache = CacheService.getScriptCache();
+  const cacheKey = `records_${meetingId}`;
+  
+  // Проверка кэша
+  const cachedData = cache.get(cacheKey);
+  if (cachedData) {
+    return JSON.parse(cachedData);
+  }
+  
+  const sheet = SpreadsheetApp.getActive().getSheetByName('Записи');
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0].map(h => h.toString().toLowerCase());
+  
+  const meetingIdIndex = headers.indexOf('id встречи');
+  const typeIndex = headers.indexOf('запись');
+  const textIndex = headers.indexOf('текст записи');
+  const dueDateIndex = headers.indexOf('срок');
+  const responsibleIndex = headers.indexOf('ответственные id');
+  const importanceIndex = headers.indexOf('значимость');
+  const priorityIndex = headers.indexOf('приоритет');
+  
+  const records = data.slice(1)
+    .filter(row => row[meetingIdIndex] === meetingId)
+    .map(row => {
+      return {
+        type: row[typeIndex],
+        text: row[textIndex],
+        dueDate: formatDate(row[dueDateIndex]),
+        responsible: row[responsibleIndex] ? row[responsibleIndex].split(',').map(r => r.trim()) : [],
+        status: {
+          importance: row[importanceIndex],
+          priority: row[priorityIndex]
+        }
+      };
+    });
+  
+  // Кэшируем на 5 минут
+  cache.put(cacheKey, JSON.stringify(records), 300);
+  
+  return records;
+}
+
+/ Форматирование даты */
+function formatDate(dateValue) {
+  if (!dateValue) return '';
+  
+  try {
+    if (dateValue instanceof Date) {
+      return Utilities.formatDate(dateValue, Session.getScriptTimeZone(), "dd.MM.yyyy");
+    }
+    
+    if (typeof dateValue === 'string') {
+      const date = new Date(dateValue);
+      if (!isNaN(date.getTime())) {
+        return Utilities.formatDate(date, Session.getScriptTimeZone(), "dd.MM.yyyy");
+      }
+      
+      // Попробуем парсить формат DD-MM-YYYY
+      const [day, month, year] = dateValue.split('-');
+      if (day && month && year) {
+        return `${day}.${month}.${year}`;
+      }
+    }
+    
+    return dateValue.toString();
+  } catch (e) {
+    return dateValue.toString();
+  }
+}
+
